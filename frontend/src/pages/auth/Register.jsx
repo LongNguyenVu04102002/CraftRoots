@@ -9,14 +9,9 @@ const Register = () => {
 
   // Xử lý đăng ký
   const handleRegister = async (values) => {
-    //kiểm tra 2 mật khẩu có giống nhau không
-    if (values.password !== values.confirmPassword) {
-      message.error("Mật khẩu xác nhận không khớp");
-      return;
-    }
     try {
       setLoading(true);
-      //gọi api đăng ký
+
       await registerUser(values);
 
       message.success("Đăng ký tài khoản thành công!");
@@ -29,26 +24,10 @@ const Register = () => {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Form
-        layout="vertical"
-        onFinish={handleRegister}
-        style={{
-          width: "400px",
-          margin: "50px auto",
-          padding: "20px",
-          border: "2px solid #ccc",
-          borderRadius: "8px",
-        }}
-      >
-        <h2>Đăng ký CraftRoots</h2>
+    <div>
+      <h2>Đăng ký CraftRoots</h2>
+
+      <Form layout="vertical" onFinish={handleRegister}>
         {/* Họ tên */}
         <Form.Item
           label="Họ tên"
@@ -63,17 +42,19 @@ const Register = () => {
         >
           <Input placeholder="Nhập họ tên" />
         </Form.Item>
+
         {/* Email */}
         <Form.Item
           label="Email"
           name="email"
           rules={[
             { required: true, message: "Vui lòng nhập email" },
-            { type: "email", message: "Email ko hợp lệ" },
+            { type: "email", message: "Email không hợp lệ" },
           ]}
         >
           <Input placeholder="Nhập email" />
         </Form.Item>
+
         {/* Mật khẩu */}
         <Form.Item
           label="Mật khẩu"
@@ -81,31 +62,59 @@ const Register = () => {
           rules={[
             { required: true, message: "Vui lòng nhập mật khẩu" },
             { min: 8, message: "Mật khẩu phải có ít nhất 8 ký tự" },
+            {
+              validator: (_, value) => {
+                if (!value || new TextEncoder().encode(value).length <= 72) {
+                  return Promise.resolve();
+                }
+                return Promise.reject(
+                  new Error("Mật khẩu vượt quá 72 byte UTF-8"),
+                );
+              },
+            },
           ]}
         >
           <Input.Password placeholder="Nhập mật khẩu" />
         </Form.Item>
+
         {/* Xác nhận mật khẩu */}
         <Form.Item
           label="Xác nhận mật khẩu"
           name="confirmPassword"
-          rules={[{ required: true, message: "Vui lòng xác nhận mật khẩu" }]}
+          dependencies={["password"]}
+          rules={[
+            { required: true, message: "Vui lòng xác nhận mật khẩu" },
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                if (!value || getFieldValue("password") === value) {
+                  return Promise.resolve();
+                }
+                return Promise.reject(
+                  new Error("Mật khẩu xác nhận không khớp"),
+                );
+              },
+            }),
+          ]}
         >
           <Input.Password placeholder="Nhập lại mật khẩu" />
         </Form.Item>
+
         {/* Số điện thoại */}
         <Form.Item label="Số điện thoại" name="phone">
           <Input placeholder="Không bắt buộc" />
         </Form.Item>
+
         {/* Nút đăng ký */}
-        <Button type="primary" htmlType="submit" loading={loading} block>
+        <Button type="primary" htmlType="submit" loading={loading}>
           Đăng ký
         </Button>
-        <p>
-          Đã có tài khoản ? <Link to="/login">Đăng nhập</Link>
-        </p>
       </Form>
+
+      <p>
+        Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
+      </p>
     </div>
   );
 };
+
 export default Register;
