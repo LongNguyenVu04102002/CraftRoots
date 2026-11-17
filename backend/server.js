@@ -5,6 +5,7 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const craftDirectoryRoutes = require("./routes/craftDirectoryRoutes");
+const craftRoutes = require("./routes/craftRoutes");
 const connectDB = require("./config/db");
 
 const app = express();
@@ -35,7 +36,7 @@ app.get("/api/health", (req, res) => {
         timestamp: new Date()
     });
 });
-
+app.use("/api/public/crafts", craftRoutes);
 // 6. Khởi động server sau khi kết nối MongoDB thành công
 const startServer = async () => {
     try {
