@@ -1,35 +1,24 @@
 const express = require("express");
 
-const { register, login } = require("../controllers/authController");
-const { authenticate, authorize } = require("../middlewares/authMiddleware");
 const {
-  validateRegister,
-  validateLogin,
-} = require("../middlewares/validateMiddleware");
+  register,
+  login,
+  refreshAccessToken,
+  logout,
+} = require("../controllers/authController");
+const { authenticate, authorize } = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
 //API đăng ký tài khoản
-router.post("/register", validateRegister, register);
+router.post("/register", register);
 //API đăng nhập tài khoản
-router.post("/login", validateLogin, login);
+router.post("/login", login);
+//API làm mới(refresh) Access Token
+router.post("/refresh", refreshAccessToken); // ở đây ko sử dụng authenticate vì Access Token có thể đã hết hạn => Xác thực ngay trong controller
+//API đăng xuất tài khoản
+router.post("/logout", logout);
 
-//API lấy thông tin tài khoản đang đăng nhập
-router.get("/me", authenticate, (req, res) => {
-  return res.status(200).json({
-    success: true,
-    message: "Lấy thông tin tài khoản thành công",
-    data: {
-      user: {
-        _id: req.user._id,
-        fullName: req.user.fullName,
-        email: req.user.email,
-        role: req.user.role,
-        accountStatus: req.user.accountStatus,
-      },
-    },
-  });
-});
 //API test quyền USER (học và kiểm thử, thực tế nên xóa)
 router.get("/test-user", authenticate, authorize("USER"), (req, res) => {
   return res.json({

@@ -12,6 +12,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const cookieParser = require("cookie-parser");
 
 const connectDB = require("./config/db");
 
@@ -22,16 +23,21 @@ app.use(cors());
 
 // 2. Cho phép Backend đọc dữ liệu JSON
 app.use(express.json());
+// 8. Cho phép đọc cookie từ client
+app.use(cookieParser());
 
 // 3. Cho phép đọc dữ liệu từ form
 app.use(express.urlencoded({ extended: true }));
+
+// 4. Cho phép truy cập hình ảnh trong thư mục uploads
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 //7. routes
 const authRoutes = require("./routes/authRoutes");
 app.use("/api/auth/", authRoutes);
 
-// 4. Cho phép truy cập hình ảnh trong thư mục uploads
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+const userRoutes = require("./routes/userRoutes");
+app.use("/api/users", userRoutes);
 
 // 5. API kiểm tra server
 app.get("/api/health", (req, res) => {
