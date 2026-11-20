@@ -32,12 +32,18 @@ app.use(express.urlencoded({ extended: true }));
 // 4. Cho phép truy cập hình ảnh trong thư mục uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-//7. routes
+// 7. routes
 const authRoutes = require("./routes/authRoutes");
 app.use("/api/auth/", authRoutes);
 
 const userRoutes = require("./routes/userRoutes");
 app.use("/api/users", userRoutes);
+
+const craftDirectoryRoutes = require("./routes/craftDirectoryRoutes");
+app.use("/api/public/craft-directories", craftDirectoryRoutes);
+
+const craftRoutes = require("./routes/craftRoutes");
+app.use("/api/public/crafts", craftRoutes);
 
 // 5. API kiểm tra server
 app.get("/api/health", (req, res) => {

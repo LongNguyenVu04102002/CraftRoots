@@ -268,7 +268,7 @@ const logout = async (req, res) => {
         .digest("hex");
       //3. Cập nhật trạng thái thu hồi
       await RefreshToken.updateOne(
-        { tokenHash: tokenHash, revoked: null },
+        { tokenHash: tokenHash, revokedAt: null },
         { $set: { revokedAt: new Date() } }, // thu hồi ngay hiện tại => API Refresh sẽ ko tìm thấy token hợp lệ nữa=> Ko thể tạo Access Token mới
       );
     }

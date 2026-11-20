@@ -69,7 +69,7 @@ const Register = () => {
           name="email"
           rules={[
             { required: true, message: "Vui lòng nhập email" },
-            { type: "email", message: "Email ko hợp lệ" },
+            { type: "email", message: "Email không hợp lệ" },
           ]}
         >
           <Input placeholder="Nhập email" />
