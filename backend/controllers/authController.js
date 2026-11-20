@@ -2,10 +2,26 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+//Module có sẵn của Node.js, tạo chuỗi token ngẫu nhiên và băm token
+const crypto = require("crypto");
+const RefreshToken = require("../models/RefreshToken");
+// import validation từ services
+const {
+  validateRegister,
+  validateLogin,
+} = require("../services/validationService");
+
 //I. Đăng ký tài khoản(register)
 const register = async (req, res) => {
   try {
-    //Dữ liệu đã được validateRegister kiểm tra
+    //gọi service để kiểm tra dữ liệu đầu vào
+    const errorMessage = validateRegister(req.body);
+    if (errorMessage) {
+      return res.status(400).json({
+        success: false,
+        message: errorMessage,
+      });
+    }
     //1. Lấy data từ frontend
     const { fullName, email, password, confirmPassword, phone } = req.body;
 
@@ -76,7 +92,14 @@ const register = async (req, res) => {
 //II. Đăng nhập tài khoản (login)
 const login = async (req, res) => {
   try {
-    //Dữ liệu đã được validateLogin kiểm tra
+    //gọi service để kiểm tra dữ liệu đầu vào
+    const errorMessage = validateLogin(req.body);
+    if (errorMessage) {
+      return res.status(400).json({
+        success: false,
+        message: errorMessage,
+      });
+    }
     //1. Lấy dữ liệu từ frontend
     const { email, password } = req.body;
 
@@ -111,15 +134,42 @@ const login = async (req, res) => {
       });
     }
     //7. Tạo JWT 3 tham số jwt.sign(payload, secretOrPrivateKey, options);
-    const token = jwt.sign(
+    //Tạo accessToken
+    const accessToken = jwt.sign(
       { userId: user._id.toString() }, //dữ liệu muốn chứa trong token, cần chuyển toString vì _id là kiểu ObjectId
       process.env.JWT_SECRET, //khóa bí mật dùng để ký token,
-      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }, //option tùy chọn chọn số ngày sống của token 1d = 1 day, 15m = 15minutes, 1h = 1 hour
+      { expiresIn: process.env.JWT_EXPIRES_IN || "15m" }, //option tùy chọn chọn số ngày sống của token 1d = 1 day, 15m = 15minutes, 1h = 1 hour
       //Chưa đưa ROLE vào để middleware có thể lấy quyền mới nhất từ MongoDB, tránh phụ thuộc vào role cũ trong JWT
     );
     //8. Cập nhật thời gian đăng nhập gần nhất (user.lastLoginAt đã set trong model)
     user.lastLoginAt = new Date();
     await user.save();
+    //Bổ sung đoạn này làm Refresh Token
+    //Tạo Refresh Token ngẫu nhiên
+    const refreshToken = crypto.randomBytes(64).toString("hex"); // Tạo 64 byte ngẫu nhiên có độ bảo mật cao sau đó chuyển sang chuỗi hex
+    //Băm RefreshToken trước khi lưu DB
+    const tokenHash = crypto
+      .createHash("sha256") //sha256 phù hợp việc lưu và tra cứu bản hash của token này
+      .update(refreshToken)
+      .digest("hex");
+    //Thiết lập thời gian hết hạn 7 ngày
+    const refreshMaxAge = 7 * 24 * 60 * 60 * 1000; //tinh bang mili giay
+    const expiresAt = new Date(Date.now() + refreshMaxAge);
+    //Lưu thông tin Refresh Token vào MongoDB
+    await RefreshToken.create({
+      userId: user._id,
+      tokenHash: tokenHash,
+      expiresAt: expiresAt,
+    });
+    //Gửi Refresh Token về trình duyệt(client) qua cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true, //JS Frontend ko thể đọc trực tiếp qua cookie (document.cookie="" rỗng)
+      secure: process.env.NODE_ENV === "production", //Chỉ gửi qua HTTPS, ở đây là production thì bật lên development có thể tắt đi
+      sameSite: "lax", //Giới hạn 1 số trường hợp gửi cookie giữa các site(có "strict","none" nữa)
+      //Khi triển khai khác domain(tên miền), xem lại SameSite, HTTPS và bảo vệ CSRF
+      path: "/api/auth", //Cookie đc gửi đến các API thuộc /api/auth tức là có thể áp dụng với /api/auth/123456 ...vv
+      maxAge: refreshMaxAge, // Thời gian sống 7 ngày
+    });
     //10. Trả kết quả đăng nhập
     return res.status(200).json({
       success: true,
@@ -135,7 +185,7 @@ const login = async (req, res) => {
           lastLoginAt: user.lastLoginAt,
           createdAt: user.createdAt,
         },
-        token: token, // trả về 1 chuỗi string đã tạo trước đó
+        token: accessToken, // trả về 1 chuỗi string đã tạo trước đó
         //chứa 3 phần Header(thông tin thuật toán), Payload(thông tin user và expiry date), Signature(chữ ký xác thực kiểm tra token có bị giả mạo k)
       },
     });
@@ -148,7 +198,101 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { register, login };
+//III. Làm mới Access Token
+// Hiện tại Refresh Token cũ tiếp tục được sử dụng đến khi hết hạn or bị revoke
+// Sau này có thể phát triển thêm Refresh Token Rotation => tăng bảo mật
+const refreshAccessToken = async (req, res) => {
+  try {
+    //1. Lấy Refresh Token từ cookie
+    const refreshToken = req.cookies?.refreshToken; // ?.(Optional Chaining - Truy cập chuỗi tùy chọn)
+    //Lấy thuộc tính bên trong object mà ko sợ bị văng or sập server khi Object null or undefined(ở đây chính là kiểm tra req.cookies)
+    if (!refreshToken) {
+      return res.status(401).json({
+        message: "Không tìm thấy Refresh Token",
+      });
+    }
+    //2. Băm Refresh Token để đối chiếu trong MongoDB
+    const tokenHash = crypto
+      .createHash("sha256") // băm 2 lần cùng 1 token với SHA-256, kết quả sẽ giống nhau =>Từ đó đối chiếu đc trong db
+      .update(refreshToken)
+      .digest("hex");
+    //3. Tìm Refresh Token trong database xem có còn hiệu lực ko
+    const storedToken = await RefreshToken.findOne({
+      tokenHash: tokenHash, //check xem có = refresh token băm ở trên ko
+      revokedAt: null, //Token chưa bị thu hồi thì thỏa mãn
+      expiresAt: { $gt: new Date() }, // thời gian hết hạn phải lớn hơn thời điểm hiện tại
+    });
+    if (!storedToken) {
+      return res.status(401).json({
+        message: "Refresh Token không hợp lệ hoặc hết hạn",
+      });
+    }
+    //4. Tìm user sở hữu Refresh Token
+    const user = await User.findById(storedToken.userId); // field userId mình đã liên kết với bảng User
+    if (!user || user.accountStatus !== "ACTIVE") {
+      // ko tồn tại or blocked or disabled
+      return res.status(401).json({
+        message: "Tài khoản không hợp lệ",
+      });
+    }
+    //5. Tạo Access Token mới
+    const accessToken = jwt.sign(
+      { userId: user._id.toString() }, //payload
+      process.env.JWT_SECRET, //chu ky or JWT_SECRET
+      { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m" }, //Thời gian sống
+    );
+    //6. Trả Access Token mới
+    return res.status(200).json({
+      message: "Làm mới Access Token thành công",
+      data: {
+        token: accessToken,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Lỗi Server" });
+  }
+};
+
+const logout = async (req, res) => {
+  try {
+    //vì logout nên ta phải thu hồi refresh token tránh dùng refresh token để vào lại
+    //1. Lấy Refresh Token từ cookie
+    const refreshToken = req.cookies?.refreshToken;
+    //2. Nếu có thì thu hồi trong DB
+    if (refreshToken) {
+      //Băm Refresh Token để so sánh trong DB
+      const tokenHash = crypto
+        .createHash("sha256")
+        .update(refreshToken)
+        .digest("hex");
+      //3. Cập nhật trạng thái thu hồi
+      await RefreshToken.updateOne(
+        { tokenHash: tokenHash, revoked: null },
+        { $set: { revokedAt: new Date() } }, // thu hồi ngay hiện tại => API Refresh sẽ ko tìm thấy token hợp lệ nữa=> Ko thể tạo Access Token mới
+      );
+    }
+    //4. Xóa cookie ở trình duyệt
+    res.clearCookie("refreshToken", {
+      // cần các thuộc tính phải phù hợp với lúc tạo mới tìm đc như path,...
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/api/auth",
+    });
+    //5. Trả kết quả
+    return res.status(200).json({
+      // vẫn trả 200 nếu cookie ko tồn tại or token bị thu hồi => Nhấn Logout nhiều lần sẽ ko gây lỗi
+      success: true,
+      message: "Đăng xuất thành công",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Lỗi Server" });
+  }
+}; // ko xóa Document khỏi MongoDB mà đánh dấu token đã bị thu hồi
+
+module.exports = { register, login, refreshAccessToken, logout };
 
 //200 OK – Thành công
 //201 Created – Tạo mới thành công
