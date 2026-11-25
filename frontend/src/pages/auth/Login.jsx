@@ -1,63 +1,43 @@
-import { useState } from "react";
-import { Form, Input, Button, message } from "antd";
-import { loginUser } from "../../services/authService";
-import { Link } from "react-router-dom";
+// TRANG ĐĂNG NHẬP
+// Form nhập email/mật khẩu và hiển thị kết quả đăng nhập.
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { userService } from '../../services/userService';
 
-const Login = () => {
-  const [loading, setLoading] = useState(false);
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
-  // Xử lý đăng nhập
-  const handleLogin = async (values) => {
+  const handleLogin = async (e) => {
+    e.preventDefault();
     try {
-      setLoading(true);
-
-      const data = await loginUser(values.email, values.password);
-
-      // Lưu token để sử dụng cho các API cần xác thực
-      localStorage.setItem("token", data.token);
-
-      message.success("Đăng nhập thành công!");
-    } catch (error) {
-      message.error(error.message || "Đăng nhập thất bại!");
-    } finally {
-      setLoading(false);
+      const res = await userService.login({ email, password });
+      localStorage.setItem('craftroots_token', res.token);
+      localStorage.setItem('craftroots_user', JSON.stringify(res.user));
+      if (res.user.role === 'ADMIN') navigate('/admin');
+      else if (res.user.role === 'ARTISAN') navigate('/artisan/dashboard');
+      else navigate('/');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Đăng nhập thất bại.');
     }
   };
 
   return (
-    <div>
-      <h2>Đăng nhập CraftRoots</h2>
-
-      <Form layout="vertical" onFinish={handleLogin}>
-        <Form.Item
-          label="Email"
-          name="email"
-          rules={[
-            { required: true, message: "Vui lòng nhập email" },
-            { type: "email", message: "Email không hợp lệ" },
-          ]}
-        >
-          <Input placeholder="Nhập email" />
-        </Form.Item>
-
-        <Form.Item
-          label="Mật khẩu"
-          name="password"
-          rules={[{ required: true, message: "Vui lòng nhập mật khẩu" }]}
-        >
-          <Input.Password placeholder="Nhập mật khẩu" />
-        </Form.Item>
-
-        <Button type="primary" htmlType="submit" loading={loading}>
-          Đăng nhập
-        </Button>
-      </Form>
-
-      <p>
-        Chưa có tài khoản? <Link to="/register">Đăng ký</Link>
-      </p>
+    <div className="container page-wrap" style={{ maxWidth: '460px' }}>
+      <form onSubmit={handleLogin} className="form-card">
+        <h2>Đăng nhập CraftRoots</h2>
+        {error && <div className="alert-error">{error}</div>}
+        <label>Email</label>
+        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        <label>Mật khẩu</label>
+        <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        <button type="submit" className="btn-primary" style={{ width: '100%' }}>Đăng nhập</button>
+        <p style={{ marginTop: '14px', textAlign: 'center' }}>
+          Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
+        </p>
+      </form>
     </div>
   );
-};
-
-export default Login;
+}

@@ -36,6 +36,8 @@ const authenticate = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET, {
       algorithms: ["HS256"],
     });
+    //Nếu token hợp lệ, hàm trả về payload đã xác minh và gán vào decoded.
+    //Nếu không hợp lệ, hàm sẽ throw error và đi vào catch.
     //Ví dụ decoded có thể chứa
     //{
     // "userId": "6af4ead59d29ee70c578f544", ID tài khoản cho vào payload
@@ -67,7 +69,7 @@ const authenticate = async (req, res, next) => {
     //6. Gắn user vào req
     //sau bước Xác minh JWT và tìm user thành công, backend đã biết người gửi request là ai, có quyền truy cập API hay ko
     //Nhưng biến user chỉ tồn tại trong middleware này, muốn các controller khác dùng thì cần gắn vào req.user
-    req.user = user;
+    req.user = user; //có thể tái sử dụng trong các controller khác
     //7. gọi next() - nếu ko gọi thì request sẽ bị treo ở middleware, ko đi tiếp đến controller
     next();
   } catch (error) {
