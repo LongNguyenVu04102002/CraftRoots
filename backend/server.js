@@ -1,62 +1,83 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const connectDB = require('./config/db');
+const upload = require('./middlewares/uploadMiddleware');
+const { protect } = require('./middlewares/authMiddleware');
 
-require("dotenv").config();
-
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
-
-const connectDB = require("./config/db");
-
-const regionRoutes = require("./routes/regionRoutes");
-const villageRoutes = require("./routes/villageRoutes");
+const User = require('./models/User');
+const Craft = require('./models/Craft');
+const Village = require('./models/Village');
+const Artifact = require('./models/Artifact');
+const Artisan = require('./models/Artisan');
+const Contribution = require('./models/Contribution');
+const Contact = require('./models/Contact');
 
 const app = express();
 
-// 1. Cho phép Frontend gọi Backend
 app.use(cors());
-
-// 2. Cho phép Backend đọc JSON
 app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 3. Cho phép đọc dữ liệu từ form
-app.use(express.urlencoded({ extended: true }));
-
-// 4. Đăng ký Routes
-app.use("/api", regionRoutes);
-app.use("/api", villageRoutes);
-
-// 5. Cho phép truy cập hình ảnh trong thư mục uploads
-app.use(
-    "/uploads",
-    express.static(path.join(__dirname, "uploads"))
-);
-
-// 6. API kiểm tra server
-app.get("/api/health", (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: "CraftRoots Backend is running",
-        timestamp: new Date()
-    });
+// API Upload file ảnh/video
+app.post('/api/upload', protect, upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'Vui lòng chọn file để tải lên.' });
+  }
+  const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+  res.json({ url: fileUrl, filename: req.file.filename });
 });
 
-// 7. Khởi động server sau khi kết nối MongoDB thành công
-const startServer = async () => {
-    try {
-        await connectDB();
+// API Thống kê tổng quan cho Admin Dashboard
+app.get('/api/stats', async (req, res) => {
+  try {
+    const [users, crafts, villages, artifacts, artisans, pendingContributions, newContacts] =
+      await Promise.all([
+        User.countDocuments(),
+        Craft.countDocuments(),
+        Village.countDocuments(),
+        Artifact.countDocuments(),
+        Artisan.countDocuments(),
+        Contribution.countDocuments({ status: 'PENDING' }),
+        Contact.countDocuments({ status: 'NEW' })
+      ]);
 
-        const PORT = process.env.PORT || 5000;
+    res.json({
+      users,
+      crafts,
+      villages,
+      artifacts,
+      artisans,
+      pendingContributions,
+      newContacts
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
-        app.listen(PORT, () => {
-            console.log(
-                `CraftRoots Backend running at http://localhost:${PORT}`
-            );
-        });
+// Các tuyến API chính
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/crafts', require('./routes/craftRoutes'));
+app.use('/api/directories', require('./routes/craftDirectoryRoutes'));
+app.use('/api', require('./routes/villageRoutes'));
+app.use('/api/artifacts', require('./routes/artifactRoutes'));
+app.use('/api/artisans', require('./routes/artisanRoutes'));
+app.use('/api/contributions', require('./routes/contributionRoutes'));
+app.use('/api/contacts', require('./routes/contactRoutes'));
+app.use('/api/locations', require('./routes/locationRoutes'));
+app.use('/api', require('./routes/regionRoutes'));
 
-    } catch (error) {
-        console.error("Cannot start server:", error.message);
-        process.exit(1);
-    }
-};
+app.get('/', (req, res) => {
+  res.json({ status: 'OK', message: 'CraftRoots Backend API is running!' });
+});
 
-startServer();
+const PORT = process.env.PORT || 5000;
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server CraftRoots đang chạy tại http://localhost:${PORT}`);
+    });
+  })
+  .catch(() => process.exit(1));

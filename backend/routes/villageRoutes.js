@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 
 const villageController = require("../controllers/villageController");
+const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
 
 // ======================================
 // PUBLIC ROUTES
@@ -10,11 +11,14 @@ const villageController = require("../controllers/villageController");
 
 // Lấy danh sách Village đã công khai
 router.get("/public/villages", villageController.getPublicVillages);
+router.get("/villages", villageController.getPublicVillages);
+router.get("/villages/:slug", villageController.getPublicVillageBySlug);
 
 
 // ======================================
 // ADMIN ROUTES
 // ======================================
+router.use("/admin", protect, authorizeRoles("ADMIN"));
 
 // Lấy tất cả Village (tìm kiếm, lọc)
 router.get("/admin/villages", villageController.getAllVillages);

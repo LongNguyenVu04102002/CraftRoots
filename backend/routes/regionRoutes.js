@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 
 const regionController = require("../controllers/regionController");
+const { protect, authorizeRoles } = require("../middlewares/authMiddleware");
 
 // ======================================
 // PUBLIC ROUTES
@@ -10,11 +11,13 @@ const regionController = require("../controllers/regionController");
 
 // Lấy danh sách Region đã công khai
 router.get("/public/regions", regionController.getPublicRegions);
+router.get("/regions", regionController.getPublicRegions);
 
 
 // ======================================
 // ADMIN ROUTES
 // ======================================
+router.use("/admin", protect, authorizeRoles("ADMIN"));
 
 // Lấy tất cả Region (có tìm kiếm, lọc)
 router.get("/admin/regions", regionController.getAllRegions);

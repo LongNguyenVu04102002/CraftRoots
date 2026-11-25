@@ -25,12 +25,6 @@ const regionSchema = new mongoose.Schema(
             default: ""
         },
 
-        coverImage: {
-            type: String,
-            trim: true,
-            default: ""
-        },
-
         isPublished: {
             type: Boolean,
             required: true,

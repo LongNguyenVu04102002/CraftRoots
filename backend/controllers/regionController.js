@@ -116,7 +116,7 @@ const getRegionById = async (req, res) => {
 // 4. Thêm Region
 const createRegion = async (req, res) => {
     try {
-        const { name, description, coverImage } = req.body;
+        const { name, description } = req.body;
 
         // Kiểm tra tên Region
         if (!name || typeof name !== "string" || !name.trim()) {
@@ -147,8 +147,7 @@ const createRegion = async (req, res) => {
         const region = await Region.create({
             name,
             slug,
-            description,
-            coverImage
+            description
         });
 
         return res.status(201).json({
@@ -173,7 +172,7 @@ const createRegion = async (req, res) => {
 const updateRegion = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description, coverImage, isPublished } = req.body;
+        const { name, description, isPublished } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({
@@ -225,10 +224,6 @@ const updateRegion = async (req, res) => {
         // Cập nhật các trường còn lại nếu được gửi lên
         if (description !== undefined) {
             region.description = description;
-        }
-
-        if (coverImage !== undefined) {
-            region.coverImage = coverImage;
         }
 
         if (isPublished !== undefined) {

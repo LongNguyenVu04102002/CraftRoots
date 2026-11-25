@@ -1,6 +1,43 @@
 
 const Village = require("../models/Village");
 const Region = require("../models/Region");
+const { stripProvincePrefix } = require("../data/vietnamLocations");
+
+const escapeRegex = (text = "") =>
+    text.toString().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const slugify = (text = "") =>
+    text
+        .toString()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/đ/g, "d")
+        .replace(/Đ/g, "d")
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/(^-|-$)/g, "");
+
+const buildProvinceFilter = (province = "") => {
+    const baseName = stripProvincePrefix(province);
+    if (!baseName) return undefined;
+    return new RegExp(`^(TP\\.\\s*|Thành phố\\s+|Tỉnh\\s+)?${escapeRegex(baseName)}$`, "i");
+};
+
+const buildSearchConditions = (search = "") => {
+    const keyword = escapeRegex(search.trim());
+    if (!keyword) return null;
+    const regex = new RegExp(keyword, "i");
+    return [
+        { name: regex },
+        { description: regex },
+        { history: regex },
+        { province: regex },
+        { commune: regex }
+    ];
+};
 
 // ======================================
 // PUBLIC: LẤY DANH SÁCH VILLAGE
@@ -8,7 +45,7 @@ const Region = require("../models/Region");
 
 const getPublicVillages = async (req, res) => {
     try {
-        const { search, regionId, page = 1, limit = 10 } = req.query;
+        const { search, regionId, province, commune, page = 1, limit = 10 } = req.query;
 
         const filter = {
             isPublished: true,
@@ -19,8 +56,17 @@ const getPublicVillages = async (req, res) => {
             filter.regionId = regionId;
         }
 
-        if (search) {
-            filter.$text = { $search: search };
+        if (province) {
+            filter.province = buildProvinceFilter(province);
+        }
+
+        if (commune) {
+            filter.commune = new RegExp(`^${escapeRegex(commune.trim())}$`, "i");
+        }
+
+        const searchOr = buildSearchConditions(search);
+        if (searchOr) {
+            filter.$or = searchOr;
         }
 
         const villages = await Village.find(filter)
@@ -51,6 +97,26 @@ const getPublicVillages = async (req, res) => {
     }
 };
 
+const getPublicVillageBySlug = async (req, res) => {
+    try {
+        const village = await Village.findOne({
+            slug: req.params.slug,
+            isPublished: true,
+            isDeleted: false
+        })
+            .populate("regionId", "name slug")
+            .populate("craftIds");
+
+        if (!village) {
+            return res.status(404).json({ success: false, message: "Village not found" });
+        }
+
+        return res.status(200).json({ success: true, data: village });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 
 // ======================================
 // ADMIN: LẤY TẤT CẢ VILLAGE
@@ -61,6 +127,8 @@ const getAllVillages = async (req, res) => {
         const {
             search,
             regionId,
+            province,
+            commune,
             isPublished,
             page = 1,
             limit = 10
@@ -70,12 +138,21 @@ const getAllVillages = async (req, res) => {
             isDeleted: false
         };
 
-        if (search) {
-            filter.$text = { $search: search };
+        const searchOr = buildSearchConditions(search);
+        if (searchOr) {
+            filter.$or = searchOr;
         }
 
         if (regionId) {
             filter.regionId = regionId;
+        }
+
+        if (province) {
+            filter.province = buildProvinceFilter(province);
+        }
+
+        if (commune) {
+            filter.commune = new RegExp(`^${escapeRegex(commune.trim())}$`, "i");
         }
 
         if (isPublished !== undefined) {
@@ -182,8 +259,24 @@ const createVillage = async (req, res) => {
             });
         }
 
+        // Kiểm tra tên làng nghề và tự tạo slug nếu để trống
+        if (!name || typeof name !== "string" || !name.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: "Village name is required"
+            });
+        }
+
+        const finalSlug = slugify(slug && slug.trim() ? slug : name);
+        if (!finalSlug) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid village slug"
+            });
+        }
+
         // Kiểm tra slug trùng
-        const existingVillage = await Village.findOne({ slug });
+        const existingVillage = await Village.findOne({ slug: finalSlug });
 
         if (existingVillage) {
             return res.status(400).json({
@@ -194,7 +287,7 @@ const createVillage = async (req, res) => {
 
         const village = await Village.create({
             name,
-            slug,
+            slug: finalSlug,
             regionId,
             province,
             commune,
@@ -266,8 +359,22 @@ const updateVillage = async (req, res) => {
             }
         }
 
-        // Kiểm tra slug trùng
-        if (updateData.slug) {
+        // Chuẩn hóa / tự sinh slug nếu để trống và kiểm tra trùng
+        if (updateData.slug !== undefined) {
+            const rawSlug = updateData.slug.toString().trim();
+            updateData.slug = slugify(rawSlug || updateData.name || village.name);
+        } else if (updateData.name !== undefined) {
+            updateData.slug = slugify(updateData.name);
+        }
+
+        if (updateData.slug !== undefined) {
+            if (!updateData.slug) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid village slug"
+                });
+            }
+
             const existingVillage = await Village.findOne({
                 slug: updateData.slug,
                 _id: { $ne: req.params.id }
@@ -398,6 +505,7 @@ const deleteVillage = async (req, res) => {
 
 module.exports = {
     getPublicVillages,
+    getPublicVillageBySlug,
     getAllVillages,
     getVillageById,
     createVillage,
