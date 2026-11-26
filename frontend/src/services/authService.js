@@ -1,9 +1,10 @@
-const API_URL = "http://localhost:5000/api/auth";
-const API_USER_URL = "http://localhost:5000/api/users";
+const API_URL = "http://localhost:5001/api/auth";
 //1.Gọi API đăng nhập
 const loginUser = async (email, password) => {
   const response = await fetch(`${API_URL}/login`, {
     method: "POST",
+    credentials: "include", //cho phép trình duyệt nhận và gửi cookie trong request khác origin
+    //VD localhost:5173 và backend ở localhost:5000, khi server cấu hình CORS phù hợp
     headers: {
       "Content-Type": "application/json",
     },
@@ -38,28 +39,38 @@ const registerUser = async (values) => {
   return result.data.user;
 };
 
-//3. Gọi API lấy thông tin user đang đăng nhập
-const getMe = async (token) => {
-  const response = await fetch(`${API_USER_URL}/me`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+//3. Làm mới Access Token
+const refreshAccessToken = async () => {
+  const response = await fetch(`${API_URL}/refresh`, {
+    method: "POST",
+    credentials: "include", //browser tự gửi Refresh Token trong cookie lên backend
   });
+
   const result = await response.json();
-  if (!response.ok) {
-    const error = new Error(
-      result.message || "Lấy thông tin người dùng thất bại",
-    );
-    // Gắn mã HTTP status để ProtectedRoute xử lý
+  if (!response.ok || !result.data?.token) {
+    const error = new Error(result.message || "Không thể làm mới Access Token");
     error.status = response.status;
-    // Ném lỗi sang catch trong ProtectedRoute
     throw error;
   }
-
-  return result.data.user;
-  // dữ liệu mẫu của result.data.user: { _id, fullName, email, role, accountStatus }
+  //Lưu Access Token mới
+  const newToken = result.data.token; // Access Token mới do Backend tạo trả về
+  localStorage.setItem("token", newToken); //Ghi đè Access Token cũ bằng token mới
+  // Refresh Token ko bị thay đổi ở hiện tại vì chưa triển khai Refresh Token Rotation
+  return newToken;
 };
 
-export { loginUser, getMe, registerUser };
+//4. Gọi API đăng xuất
+const logoutUser = async () => {
+  const response = await fetch(`${API_URL}/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(result.message || "Đăng xuất thất bại");
+  }
+  return result;
+};
+
+export { loginUser, registerUser, refreshAccessToken, logoutUser };

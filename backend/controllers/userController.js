@@ -21,6 +21,8 @@ const getMe = (req, res) => {
         _id: req.user._id,
         fullName: req.user.fullName,
         email: req.user.email,
+        phone: req.user.phone,
+        avatarUrl: req.user.avatarUrl,
         role: req.user.role,
         accountStatus: req.user.accountStatus,
       },
