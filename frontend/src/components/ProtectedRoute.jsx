@@ -1,7 +1,7 @@
 import { Navigate, Outlet } from "react-router-dom";
 
 import { useState, useEffect } from "react";
-import { getMe } from "../services/authService";
+import { getMe } from "../services/userService";
 
 const ProtectedRoute = ({ allowedRoles = [] }) => {
   const [user, setUser] = useState(null);
@@ -14,34 +14,25 @@ const ProtectedRoute = ({ allowedRoles = [] }) => {
     let active = true;
     // gọi API getMe để kiểm tra token và lấy thông tin người dùng
     const checkAuth = async () => {
-      //Lấy token từ localStorage
-      const token = localStorage.getItem("token");
-
-      // Không có token thì kết thúc kiểm tra
-      if (!token) {
-        if (active) setLoading(false);
-        return;
-      }
-
-      //2. Có token thì gọi API xác thực
       try {
-        const data = await getMe(token);
+        //getMe tự đọc Access Token
+        //Nếu cần, nó tự gọi API Refresh
+        const data = await getMe();
+
         if (active) {
-          // xét xem người dùng là ai và gán dữ liệu
           setUser(data);
+          setAuthError("");
         }
       } catch (error) {
-        console.error(error);
-
         if (!active) return;
-
+        console.error(error);
         if (error.status === 401) {
-          //token hết hạn hoặc ko hợp lệ
+          //Ko thể xác thực hoặc Refresh thất bại
           localStorage.removeItem("token");
           setUser(null);
-        }else{
-            //lỗi mạng, server, hoặc lỗi khác
-            setAuthError(error.message);
+        } else {
+          //Lỗi mạng or lỗi server
+          setAuthError(error.message);
         }
       } finally {
         if (active) {
@@ -49,6 +40,7 @@ const ProtectedRoute = ({ allowedRoles = [] }) => {
         }
       }
     };
+
     checkAuth();
     return () => {
       active = false; // Bỏ qua kết quả API nếu effect đã được cleanup

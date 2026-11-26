@@ -19,7 +19,12 @@ const connectDB = require("./config/db");
 const app = express();
 
 // 1. Cho phép Frontend gọi Backend
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  }),
+);
 
 // 2. Cho phép Backend đọc dữ liệu JSON
 app.use(express.json());
