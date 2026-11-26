@@ -23,17 +23,17 @@ app.use(express.urlencoded({ extended: true }));
 
 // 4. Cho phép truy cập hình ảnh trong thư mục uploads
 app.use(
-    "/uploads",
-    express.static(path.join(__dirname, "uploads"))
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"))
 );
 
 // 5. API kiểm tra server
 app.get("/api/health", (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: "CraftRoots Backend is running",
-        timestamp: new Date()
-    });
+  res.status(200).json({
+    success: true,
+    message: "CraftRoots Backend is running",
+    timestamp: new Date()
+  });
 });
 
 // Chỉ mount API thuộc phạm vi Region và Village.
@@ -43,19 +43,19 @@ app.use("/api/locations", locationRoutes);
 
 // 6. Khởi động server sau khi kết nối MongoDB thành công
 const startServer = async () => {
-    try {
-        await connectDB();
+  try {
+    await connectDB();
 
-        const PORT = process.env.PORT || 5000;
+    const PORT = process.env.PORT || 5000;
 
-        app.listen(PORT, () => {
-            console.log(`CraftRoots Backend running at http://localhost:${PORT}`);
-        });
+    app.listen(PORT, () => {
+      console.log(`CraftRoots Backend running at http://localhost:${PORT}`);
+    });
 
-    } catch (error) {
-        console.error("Cannot start server:", error.message);
-        process.exit(1);
-    }
+  } catch (error) {
+    console.error("Cannot start server:", error.message);
+    process.exit(1);
+  }
 };
 
 startServer();

@@ -152,8 +152,8 @@ export default function VillageList({ artisanMode = false, villagePath }) {
             {!province
               ? 'Chọn tỉnh trước'
               : loadingWards
-              ? 'Đang tải xã/phường...'
-              : 'Tất cả xã/phường'}
+                ? 'Đang tải xã/phường...'
+                : 'Tất cả xã/phường'}
           </option>
           {wards.map((w) => (
             <option key={w.code ?? w.name} value={w.name}>
@@ -181,8 +181,8 @@ export default function VillageList({ artisanMode = false, villagePath }) {
             {q.trim()
               ? `Không tìm thấy làng nghề phù hợp với từ khóa "${q.trim()}"${regionId || province || commune ? ' và bộ lọc đã chọn' : ''}.`
               : regionId || province || commune
-              ? 'Không tìm thấy làng nghề phù hợp với bộ lọc địa phương đã chọn.'
-              : 'Chưa có làng nghề nào được công khai.'}
+                ? 'Không tìm thấy làng nghề phù hợp với bộ lọc địa phương đã chọn.'
+                : 'Chưa có làng nghề nào được công khai.'}
           </p>
         </div>
       ) : (
