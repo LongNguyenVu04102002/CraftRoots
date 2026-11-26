@@ -1,9 +1,7 @@
-// API TÀI KHOẢN
-// Tập trung các hàm gọi API đăng ký, đăng nhập, hồ sơ và đơn đăng ký nghệ nhân.
-
 import { refreshAccessToken } from "./authService";
 
-const API_USER_URL = "http://localhost:5001/api/users";
+import api from "./api";
+const API_USER_URL = "http://localhost:5000/api/users";
 
 // 1. Lấy thông tin tài khoản đang đăng nhập
 const getMe = async () => {
@@ -50,4 +48,16 @@ const getMe = async () => {
   return result.data.user;
 };
 
-export { getMe };
+const userService = {
+  uploadFile: (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api
+      .post("/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((res) => res.data);
+  },
+};
+
+export { getMe, userService };

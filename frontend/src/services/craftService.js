@@ -1,2 +1,3 @@
 // API NGHỀ THỦ CÔNG
-// Tập trung các hàm gọi API danh mục và hồ sơ nghề thủ công.
+// Chức năng này do thành viên khác phụ trách. Chưa có code.
+export const craftService = {};

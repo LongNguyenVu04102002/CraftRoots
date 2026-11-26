@@ -1,2 +1,3 @@
 // API ĐỀ XUẤT
-// Tập trung các hàm gọi API gửi, theo dõi và kiểm duyệt đề xuất.
+// Chức năng này do thành viên khác phụ trách. Chưa có code.
+export const contributionService = {};

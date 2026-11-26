@@ -50,6 +50,15 @@ app.use("/api/public/craft-directories", craftDirectoryRoutes);
 const craftRoutes = require("./routes/craftRoutes");
 app.use("/api/public/crafts", craftRoutes);
 
+const villageRoutes = require("./routes/villageRoutes");
+app.use("/api", villageRoutes);
+
+const regionRoutes = require("./routes/regionRoutes");
+app.use("/api", regionRoutes);
+
+const locationRoutes = require("./routes/locationRoutes");
+app.use("/api/locations", locationRoutes);
+
 // 5. API kiểm tra server
 app.get("/api/health", (req, res) => {
   res.status(200).json({
