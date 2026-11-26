@@ -1,2 +1,3 @@
-// TRANG HỒ SƠ TÀI KHOẢN
-// Hiển thị và cập nhật thông tin cá nhân của người dùng đã đăng nhập.
+// HỒ SƠ CÁ NHÂN
+// Chức năng này do thành viên khác phụ trách. Chưa có code.
+

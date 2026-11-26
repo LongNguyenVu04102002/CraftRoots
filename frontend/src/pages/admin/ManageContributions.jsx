@@ -1,2 +1,2 @@
-// KIỂM DUYỆT ĐỀ XUẤT
-// Admin xem nội dung đề xuất, duyệt/từ chối và nhập lý do phản hồi.
+// QUẢN LÝ ĐỀ XUẤT
+// Chức năng này do thành viên khác phụ trách. Chưa có code.

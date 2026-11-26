@@ -6,6 +6,9 @@ const cors = require("cors");
 const path = require("path");
 
 const connectDB = require("./config/db");
+const villageRoutes = require("./routes/villageRoutes");
+const regionRoutes = require("./routes/regionRoutes");
+const locationRoutes = require("./routes/locationRoutes");
 
 const app = express();
 
@@ -32,6 +35,11 @@ app.get("/api/health", (req, res) => {
         timestamp: new Date()
     });
 });
+
+// Chỉ mount API thuộc phạm vi Region và Village.
+app.use("/api", villageRoutes);
+app.use("/api", regionRoutes);
+app.use("/api/locations", locationRoutes);
 
 // 6. Khởi động server sau khi kết nối MongoDB thành công
 const startServer = async () => {

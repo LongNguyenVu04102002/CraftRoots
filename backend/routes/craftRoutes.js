@@ -1,2 +1,2 @@
 // ROUTES CRAFT
-// Khai báo URL API nghề thủ công.
+// Chức năng này do thành viên khác phụ trách. Chưa có code.

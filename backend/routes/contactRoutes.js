@@ -1,2 +1,2 @@
 // ROUTES CONTACT
-// Khai báo URL API liên hệ.
+// Chức năng này do thành viên khác phụ trách. Chưa có code.

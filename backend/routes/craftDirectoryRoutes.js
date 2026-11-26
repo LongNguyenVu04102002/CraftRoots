@@ -1,2 +1,2 @@
 // ROUTES CRAFT DIRECTORY
-// Khai báo URL API danh mục nghề thủ công.
+// Chức năng này do thành viên khác phụ trách. Chưa có code.
