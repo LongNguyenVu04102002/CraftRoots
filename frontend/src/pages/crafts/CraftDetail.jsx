@@ -1,2 +1,3 @@
-// TRANG CHI TIẾT NGHỀ THỦ CÔNG
-// Hiển thị lịch sử, nguyên liệu, công cụ, quy trình và làng nghề liên quan.
+// CHI TIẾT NGHỀ THỦ CÔNG
+// Chức năng này do thành viên khác phụ trách. Chưa có code.
+

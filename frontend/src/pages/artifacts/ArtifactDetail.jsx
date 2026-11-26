@@ -1,2 +1,3 @@
-// TRANG CHI TIẾT HIỆN VẬT
-// Hiển thị mô tả, kỹ thuật, ý nghĩa văn hóa, hình ảnh và video.
+// CHI TIẾT HIỆN VẬT
+// Chức năng này do thành viên khác phụ trách. Chưa có code.
+

@@ -1,2 +1,2 @@
-// TRANG HỒ SƠ NGHỆ NHÂN
-// Hiển thị thông tin giới thiệu và hoạt động nghề của nghệ nhân.
+// HỒ SƠ NGHỆ NHÂN
+// Chức năng này do thành viên khác phụ trách. Chưa có code.

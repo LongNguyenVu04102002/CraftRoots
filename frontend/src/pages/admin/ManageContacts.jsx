@@ -1,2 +1,3 @@
-// QUẢN LÝ LIÊN HỆ
-// Admin xem và cập nhật trạng thái các tin nhắn liên hệ.
+// QUẢN LÝ TIN NHẮN LIÊN HỆ
+// Chức năng này do thành viên khác phụ trách. Chưa có code.
+
