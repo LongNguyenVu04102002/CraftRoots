@@ -1,69 +1,51 @@
 // THANH ĐIỀU HƯỚNG
-// Hiển thị các liên kết chức năng phù hợp với trạng thái đăng nhập/vai trò.
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { User, LogOut, ShieldCheck, Sparkles } from 'lucide-react';
+// Hiển thị liên kết user/artisan theo nhánh URL hiện tại.
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import { User, LogOut, ShieldCheck } from 'lucide-react';
+import { ASSETS_IMAGES } from '../assets/images';
 
 export default function Navbar() {
-  const navigate = useNavigate();
-  const rawUser = localStorage.getItem('craftroots_user');
-  const currentUser = rawUser ? JSON.parse(rawUser) : null;
-
-  const handleLogout = () => {
-    localStorage.removeItem('craftroots_token');
-    localStorage.removeItem('craftroots_user');
-    navigate('/login');
-  };
+  const { pathname } = useLocation();
+  const basePath = pathname.startsWith('/adminuser')
+    ? '/adminuser'
+    : pathname.startsWith('/artisan')
+      ? '/artisan'
+      : '/user';
+  const villagePath = `${basePath}/villages`;
 
   return (
     <nav className="container navbar-inner">
-      <Link to="/" className="brand" aria-label="CraftRoots Trang chủ">
+      <Link to={basePath} className="brand" aria-label="CraftRoots Trang chủ">
         <img
-          src="/images/Logo_slogan.png"
+          src={ASSETS_IMAGES.logo}
           alt="CraftRoots - Tinh hoa đất trời Việt"
           className="navbar-logo"
         />
       </Link>
 
       <div className="nav-links">
-        <NavLink to="/" end>
+        <NavLink to={basePath} end>
           Trang chủ
         </NavLink>
         <NavLink to="/crafts">Nghề thủ công</NavLink>
-        <NavLink to="/villages">Làng nghề</NavLink>
+        <NavLink to={villagePath}>Làng nghề</NavLink>
         <NavLink to="/artifacts">Hiện vật</NavLink>
         <NavLink to="/contact">Liên hệ</NavLink>
       </div>
 
       <div className="nav-actions">
-        {!currentUser ? (
-          <>
-            <Link to="/login" className="btn-outline">
-              Đăng nhập
-            </Link>
-            <Link to="/register" className="btn-primary">
-              Đăng ký
-            </Link>
-          </>
-        ) : (
-          <>
-            {currentUser.role === 'ADMIN' && (
-              <Link to="/admin" className="btn-badge-admin">
-                <ShieldCheck size={15} /> Quản trị
-              </Link>
-            )}
-            {currentUser.role === 'ARTISAN' && (
-              <Link to="/artisan/dashboard" className="btn-badge-artisan">
-                <Sparkles size={15} /> Góc Nghệ nhân
-              </Link>
-            )}
-            <Link to="/profile" className="btn-outline">
-              <User size={15} /> {currentUser.fullName}
-            </Link>
-            <button type="button" onClick={handleLogout} className="btn-icon" title="Đăng xuất">
-              <LogOut size={16} />
-            </button>
-          </>
+        {basePath === '/adminuser' && (
+          <Link to="/admin" className="btn-badge-admin">
+            <ShieldCheck size={15} /> Quản trị
+          </Link>
         )}
+        <span className="btn-outline">
+          <User size={15} />
+          {basePath === '/adminuser' ? 'Quản trị viên' : basePath === '/artisan' ? 'Artisan' : 'User'}
+        </span>
+        <button type="button" className="btn-icon" title="Đăng xuất" aria-label="Đăng xuất">
+          <LogOut size={16} />
+        </button>
       </div>
     </nav>
   );

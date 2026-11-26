@@ -7,13 +7,14 @@ import { craftService } from '../../services/craftService';
 import { villageService } from '../../services/villageService';
 import { artifactService } from '../../services/artifactService';
 
-export default function Home() {
+export default function Home({ basePath = '/user' }) {
   const [crafts, setCrafts] = useState([]);
   const [villages, setVillages] = useState([]);
   const [artifacts, setArtifacts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentSlide, setCurrentSlide] = useState(0);
   const navigate = useNavigate();
+  const villagesPath = `${basePath}/villages`;
 
   useEffect(() => {
     Promise.all([
@@ -179,17 +180,16 @@ export default function Home() {
       <section className="container section-block">
         <div className="section-head">
           <h2>Làng nghề di sản</h2>
-          <Link to="/villages">Khám phá bản đồ làng nghề →</Link>
+          <Link to={villagesPath}>Khám phá bản đồ làng nghề →</Link>
         </div>
         <div className="cards-grid">
           {villages.slice(0, 3).map((v) => (
-            <Link key={v._id} to={`/villages/${v.slug}`} className="heritage-card">
+            <Link key={v._id} to={`${villagesPath}/${v.slug}`} className="heritage-card">
               <div className="card-thumb">
                 <img src={v.thumbnail} alt={v.name} />
                 <span className="card-badge">{v.province}</span>
               </div>
               <div className="card-body">
-                <span className="card-meta">{v.regionName}</span>
                 <h3>{v.name}</h3>
                 <p>{v.description}</p>
               </div>

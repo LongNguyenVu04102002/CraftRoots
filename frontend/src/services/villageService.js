@@ -3,8 +3,7 @@ import api from './api';
 const normalize = (village) => ({
   ...village,
   thumbnail: village.mainImage || village.thumbnail || '',
-  regionName: village.regionId?.name || village.regionName || '',
-  gallery: village.images || village.gallery || []
+  regionName: village.regionId?.name || village.regionName || ''
 });
 
 const unwrapList = (response) => (response.data?.data || []).map(normalize);

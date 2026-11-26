@@ -1,15 +1,24 @@
 // FOOTER DÙNG CHUNG
 // Hiển thị thông tin cuối trang, liên hệ và các liên kết cần thiết.
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { ASSETS_IMAGES } from '../assets/images';
 
 export default function Footer() {
+  const { pathname } = useLocation();
+  const basePath = pathname.startsWith('/adminuser')
+    ? '/adminuser'
+    : pathname.startsWith('/artisan')
+      ? '/artisan'
+      : '/user';
+  const villagePath = `${basePath}/villages`;
+
   return (
     <footer className="footer">
       <div className="container footer-grid">
         <div className="footer-brand-col">
-          <Link to="/" className="footer-logo-badge" aria-label="CraftRoots Trang chủ">
+          <Link to={basePath} className="footer-logo-badge" aria-label="CraftRoots Trang chủ">
             <img
-              src="/images/Logo_slogan.png"
+              src={ASSETS_IMAGES.logo}
               alt="CraftRoots - Tinh hoa đất trời Việt"
               className="footer-logo-img"
             />
@@ -23,7 +32,7 @@ export default function Footer() {
           <h4 className="footer-heading">Khám phá</h4>
           <ul className="footer-links">
             <li><Link to="/crafts">Danh mục nghề thủ công</Link></li>
-            <li><Link to="/villages">Bản đồ làng nghề truyền thống</Link></li>
+            <li><Link to={villagePath}>Bản đồ làng nghề truyền thống</Link></li>
             <li><Link to="/artifacts">Không gian trưng bày hiện vật</Link></li>
           </ul>
         </div>

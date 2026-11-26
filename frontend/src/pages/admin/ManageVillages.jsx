@@ -48,7 +48,7 @@ export default function ManageVillages() {
       });
       setVillages(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.response?.data?.message || 'Không tải được danh sách. Hãy đăng nhập bằng tài khoản Admin và kiểm tra backend.');
+      setError(err.response?.data?.message || 'Không tải được danh sách. Hãy kiểm tra backend.');
       setVillages([]);
     } finally {
       setLoading(false);

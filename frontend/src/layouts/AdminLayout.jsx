@@ -1,6 +1,6 @@
 // BỐ CỤC TRANG QUẢN TRỊ
 // Bao gồm menu Admin, thanh tiêu đề và khu vực nội dung quản trị.
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard,
   Hammer,
@@ -14,22 +14,15 @@ import {
   ArrowLeft,
   LogOut
 } from 'lucide-react';
+import { ASSETS_IMAGES } from '../assets/images';
 
 export default function AdminLayout() {
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    localStorage.removeItem('craftroots_token');
-    localStorage.removeItem('craftroots_user');
-    navigate('/login');
-  };
-
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <div className="admin-brand">
-          <Link to="/">
-            <img src="/images/Logo_slogan.png" alt="CraftRoots" />
+          <Link to="/adminuser">
+            <img src={ASSETS_IMAGES.logo} alt="CraftRoots" />
           </Link>
           <span>Hệ thống Quản trị</span>
         </div>
@@ -47,8 +40,8 @@ export default function AdminLayout() {
         </nav>
 
         <div className="admin-sidebar-footer">
-          <Link to="/" className="admin-back-link"><ArrowLeft size={16} /> Về cổng công khai</Link>
-          <button type="button" onClick={handleLogout} className="admin-logout-btn">
+          <Link to="/adminuser" className="admin-back-link"><ArrowLeft size={16} /> Về cổng công khai</Link>
+          <button type="button" className="admin-logout-btn">
             <LogOut size={16} /> Đăng xuất
           </button>
         </div>

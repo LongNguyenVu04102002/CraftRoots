@@ -1,12 +1,12 @@
 // TRANG CHI TIẾT LÀNG NGHỀ
-// Hiển thị lịch sử, địa chỉ, mô tả, hình ảnh và nghề liên quan.
+// Hiển thị lịch sử, địa chỉ, mô tả và ảnh đại diện.
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Landmark, Compass, ArrowLeft } from 'lucide-react';
+import { MapPin, Landmark, ArrowLeft } from 'lucide-react';
 import { villageService } from '../../services/villageService';
 import Loading from '../../components/Loading';
 
-export default function VillageDetail() {
+export default function VillageDetail({ backPath = '/user/villages' }) {
   const { slug } = useParams();
   const [village, setVillage] = useState(null);
   const [error, setError] = useState(false);
@@ -23,7 +23,7 @@ export default function VillageDetail() {
     return (
       <div className="container page-wrap" style={{ textAlign: 'center' }}>
         <h2>Không tìm thấy thông tin làng nghề</h2>
-        <Link to="/villages" className="btn-primary">
+        <Link to={backPath} className="btn-primary">
           Quay lại danh sách làng nghề
         </Link>
       </div>
@@ -35,7 +35,7 @@ export default function VillageDetail() {
   return (
     <div className="container page-wrap detail-page">
       <Link
-        to="/villages"
+        to={backPath}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -53,21 +53,6 @@ export default function VillageDetail() {
         <img src={village.thumbnail} alt={village.name} className="detail-cover" />
 
         <div className="detail-intro">
-          <span
-            style={{
-              display: 'inline-block',
-              background: '#fdf3dc',
-              color: '#8c5811',
-              padding: '4px 12px',
-              borderRadius: '999px',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              marginBottom: '10px'
-            }}
-          >
-            {village.regionName}
-          </span>
-
           <h1 style={{ margin: '0 0 12px', fontSize: '1.95rem' }}>{village.name}</h1>
 
           <div className="spec-box" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -75,13 +60,7 @@ export default function VillageDetail() {
               <MapPin size={16} color="var(--primary)" />
               <span>
                 <strong>Tỉnh / Thành phố:</strong> {village.province}
-                {village.commune ? ` — ${village.commune}` : village.district ? ` — ${village.district}` : ''}
-              </span>
-            </p>
-            <p style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Compass size={16} color="var(--primary)" />
-              <span>
-                <strong>Vùng văn hóa:</strong> {village.regionName}
+                {village.commune ? ` — ${village.commune}` : ''}
               </span>
             </p>
             {village.address && (
@@ -120,26 +99,6 @@ export default function VillageDetail() {
         </div>
       )}
 
-      {/* Thư viện ảnh tư liệu (nếu có) */}
-      {Array.isArray(village.gallery) && village.gallery.length > 0 && (
-        <div style={{ marginTop: '32px' }}>
-          <h2 style={{ marginBottom: '16px', fontSize: '1.35rem' }}>Hình ảnh tư liệu làng nghề</h2>
-          <div className="cards-grid">
-            {village.gallery.map((item, idx) => (
-              <div key={idx} className="heritage-card">
-                <div className="card-thumb">
-                  <img src={item.url} alt={item.caption || village.name} />
-                </div>
-                {item.caption && (
-                  <div className="card-body">
-                    <p style={{ margin: 0 }}>{item.caption}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
