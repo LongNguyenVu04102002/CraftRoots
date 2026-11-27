@@ -1,4 +1,5 @@
 const bcrypt = require("bcryptjs");
+const { z } = require("zod");
 
 //I. Kiểm tra dữ liệu đăng ký
 const validateRegister = (data) => {
@@ -45,27 +46,38 @@ const validateLogin = (data) => {
 };
 
 //III. Kiểm tra dữ liệu lúc ấn cập nhật hồ sơ
+const updateProfileSchema = z
+  .object({
+    //1. Kiểm tra họ tên
+    fullName: z
+      .string()
+      .trim()
+      .max(50, "Họ tên không được vượt quá 50 ký tự")
+      .regex(
+        /^[\p{L}\p{M}\s.'-]+$/u,
+        "Họ tên không được chứa số hoặc ký tự đặc biệt không hợp lệ",
+      )
+      .optional(),
+    //2. Kiểm tra số điện thoại
+    phone: z
+      .string()
+      .trim()
+      .refine((value) => value === "" || /^0\d{9}$/.test(value), {
+        message: "Số điện thoại phải bắt đầu bằng 0 và gồm 10 chữ số",
+      })
+      .optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "Không có dữ liệu cập nhật",
+  });
+//hàm controller sẽ gọi
 const validateUpdateProfile = (data) => {
-  const { fullName, phone, avatarUrl } = data || {};
-  //Kiểm tra fullName
-  if (fullName !== undefined) {
-    if (typeof fullName !== "string" || !fullName.trim()) {
-      return "Họ tên không hợp lệ";
-    }
+  const result = updateProfileSchema.safeParse(data);
+
+  if (!result.success) {
+    return result.error.issues[0].message;
   }
-  //Kiểm tra phone
-  if (phone !== undefined) {
-    if (typeof phone !== "string") {
-      return "Số điện thoại không hợp lệ";
-    }
-  }
-  //Kiểm tra avatarUrl
-  if (avatarUrl !== undefined) {
-    if (typeof avatarUrl !== "string") {
-      return "Đường dẫn ảnh không hợp lệ";
-    }
-  }
-  //nếu ko có lỗi
+
   return null;
 };
 

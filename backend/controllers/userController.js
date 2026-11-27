@@ -9,6 +9,12 @@ const {
   validateChangePassword,
 } = require("../services/validationService");
 
+//phần xử lý upload ảnh
+const fs = require("fs/promises"); //tạo thư mục, xóa file
+const path = require("path"); //ghép path
+const { randomUUID } = require("crypto"); //tạo tên ngẫu nhiên
+const sharp = require("sharp"); //kiểm tra, resize và chuyển định dạng hình ảnh
+
 //Lấy thông tin tài khoản
 const getMe = (req, res) => {
   //đã qua middleware authenticate nên req.user đã có thông tin user
@@ -36,7 +42,7 @@ const updateProfile = async (req, res) => {
     //1.Lấy userId từ middleware authenticate
     const userId = req.user._id;
     //2. Lấy dữ liệu từ frontend gửi lên
-    const { fullName, phone, avatarUrl } = req.body;
+    const { fullName, phone } = req.body;
     //3. Validate data = hàm validateUpdateProfile
     const error = validateUpdateProfile(req.body);
     if (error) {
@@ -49,19 +55,19 @@ const updateProfile = async (req, res) => {
     //5. Trường hợp ko gửi đủ field thì field đó thành undefine nên cần kiểm tra mới đc gán
     if (fullName !== undefined) updates.fullName = fullName.trim();
     if (phone !== undefined) updates.phone = phone.trim();
-    if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl.trim();
 
-    //6. Cập nhật trong MongoDB
-    const updatedUser = await User.findByIdAndUpdate(userId, updates, {
-      new: true,
-      runValidators: true,
-    });
-    //7.Lấy danh sách các key sau đó .length đếm số key
+    //kiểm tra 0 có thì trả luôn tránh query không cần thiết
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({
         message: "Không có dữ liệu cập nhật",
       });
     }
+    //6. Cập nhật trong MongoDB
+    const updatedUser = await User.findByIdAndUpdate(userId, updates, {
+      new: true,
+      runValidators: true,
+    });
+
     //7. Return result khi ko tìm thấy
     if (!updatedUser) {
       return res.status(404).json({
@@ -70,10 +76,22 @@ const updateProfile = async (req, res) => {
     }
     //8. Return khi tìm thấy
     return res.status(200).json({
+      success: true,
       message: "Cập nhật thành công",
-      updatedUser,
+      data: {
+        user: {
+          _id: updatedUser._id,
+          fullName: updatedUser.fullName,
+          email: updatedUser.email,
+          phone: updatedUser.phone,
+          avatarUrl: updatedUser.avatarUrl,
+          role: updatedUser.role,
+          accountStatus: updatedUser.accountStatus,
+        },
+      },
     });
   } catch (error) {
+    console.error(error);
     return res.status(400).json({
       message: error.message,
     });
@@ -122,8 +140,116 @@ const changePassword = async (req, res) => {
   }
 };
 
+const uploadAvatar = async (req, res) => {
+  let savedFilePath = null;
+  try {
+    //1. Kiểm tra Multer đã nhận đc file chưa
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng chọn ảnh đại diện",
+      });
+    }
+    //2. Lấy dữ liệu ảnh từ RAM
+    const imageBuffer = req.file.buffer;
+    //3. Kiểm tra nội dung ảnh thật = Sharp
+    let metadata;
+    try {
+      metadata = await sharp(imageBuffer, {
+        limitInputPixels: 16000000, // giới hạn số pixel ảnh đầu vào mà Sharp được phép xử lý => bảo vệ bổ sung bên cạnh 3 MiB của Multer
+      }).metadata();
+      //mẫu của metadata{
+      //   format: "png",
+      //   width: 1200,
+      //   height: 900,
+      //   channels: 4
+      // }
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: "File ảnh không hợp lệ",
+      });
+    }
+    //Chỉ chấp nhận JPEG, PNG và WebP
+    const allowedFormats = ["jpeg", "png", "webp"];
+
+    if (
+      !allowedFormats.includes(metadata.format) ||
+      !metadata.width ||
+      !metadata.height ||
+      metadata.width > 4000 ||
+      metadata.height > 4000
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Ảnh không hợp lệ hoặc kích thước quá lớn",
+      });
+    }
+    //4. Xác định folder lưu Avatar
+    const avatarDirectory = path.join(__dirname, "..", "uploads", "avatars");
+    // Tạo thư mục nếu chưa tồn tại
+    await fs.mkdir(avatarDirectory, { recursive: true });
+    //5. Tạo tên file mới
+    const filename = `${randomUUID()}.webp`;
+    savedFilePath = path.join(avatarDirectory, filename);
+    //6. Xử lý và lưu ảnh
+    await sharp(imageBuffer, {
+      limitInputPixels: 16000000,
+    })
+      .rotate()
+      .resize(256, 256, { fit: "cover" }) //VD người dùng nhập ảnh 2000 x 1500 px => đưa về 256x256, fit:cover là ảnh đc thu phóng và cắt bớt phần thừa ko kéo méo ảnh
+      .webp({ quality: 80 }) //webp giúp giảm dung lượng so với ảnh gốc và cx ko giữ đuôi .png hay .jpg nên việc quản lý đơn giản hơn
+      .toFile(savedFilePath);
+    //7.Tạo đường dẫn để lưu ảnh trong MongoDB
+    const avatarUrl = `/uploads/avatars/${filename}`; //mongoDB chỉ lưu đường dẫn file ảnh thật nằm trong backend/uploads/avatars
+
+    //8.Cập nhật Avatar cho tài khoản đã xác thực
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id, //từ authenticate
+      { avatarUrl },
+      { new: true, runValidators: true },
+    );
+    if (!updatedUser) {
+      await fs.unlink(savedFilePath);
+      savedFilePath = null;
+
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy người dùng",
+      });
+    }
+    //9.Trả kết quả cùng cấu trúc GET Profile
+    return res.status(200).json({
+      success: true,
+      message: "Cập nhật ảnh đại diện thành công",
+      data: {
+        user: {
+          _id: updatedUser._id,
+          fullName: updatedUser.fullName,
+          email: updatedUser.email,
+          phone: updatedUser.phone,
+          avatarUrl: updatedUser.avatarUrl,
+          role: updatedUser.role,
+          accountStatus: updatedUser.accountStatus,
+        },
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    //Nếu xử lý/Lưu DB thất bại thì dọn file mới
+    if (savedFilePath) {
+      await fs.unlink(savedFilePath).catch(() => {});
+    }
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi tải ảnh đại diện",
+    });
+  }
+};
+
 module.exports = {
   updateProfile,
   getMe,
   changePassword,
+  uploadAvatar,
 };

@@ -27,6 +27,9 @@ app.use(
     express.static(path.join(__dirname, "uploads"))
 );
 
+const uploadRoutes = require("./routes/uploadRoutes");
+app.use("/api/upload", uploadRoutes);
+
 // 5. API kiểm tra server
 app.get("/api/health", (req, res) => {
     res.status(200).json({

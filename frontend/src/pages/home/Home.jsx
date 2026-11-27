@@ -17,16 +17,16 @@ export default function Home({ basePath = '/user' }) {
   const villagesPath = `${basePath}/villages`;
 
   useEffect(() => {
-    Promise.all([
-      craftService.getAll().catch(() => []),
-      villageService.getAll().catch(() => []),
-      artifactService.getAll().catch(() => [])
-    ]).then(([cData, vData, aData]) => {
-      setCrafts(cData);
-      setVillages(vData);
-      setArtifacts(aData);
-    });
-  }, []);
+  Promise.all([
+    craftService.getAll?.().catch(() => []) ?? [],
+    villageService.getAll().catch(() => []),
+    artifactService.getAll?.().catch(() => []) ?? []
+  ]).then(([cData, vData, aData]) => {
+    setCrafts(cData);
+    setVillages(vData);
+    setArtifacts(aData);
+  });
+}, []);
 
   const slides = crafts.slice(0, 6);
 
