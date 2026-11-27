@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Form, Input, Button, message } from "antd";
 import { loginUser } from "../../services/authService";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 const Login = () => {
+  const { signIn } = useAuth();
   const [loading, setLoading] = useState(false);
   //khai báo để dùng chuyển hướng trong hàm
   const navigate = useNavigate();
@@ -16,9 +18,16 @@ const Login = () => {
 
       // Lưu token để sử dụng cho các API cần xác thực
       localStorage.setItem("token", data.token);
+      // Đồng bộ người dùng đã đăng nhập vào Context
+      signIn(data.user);
       message.success("Đăng nhập thành công!"); //component cua ant design
       //Sau khi thành công chuyển về "/profile"
-      navigate("/profile");
+      //navigate("/profile");
+      // Điều hướng theo vai trò sau khi đăng nhập.
+      const role = data.user?.role;
+      const destination =
+        role === "ADMIN" ? "/admin" : role === "ARTISAN" ? "/artisan" : "/user";
+      navigate(destination, { replace: true });
     } catch (error) {
       message.error(error.message || "Đăng nhập thất bại!");
     } finally {

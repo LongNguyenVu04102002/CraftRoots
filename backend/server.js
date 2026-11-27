@@ -59,6 +59,9 @@ app.use("/api", regionRoutes);
 const locationRoutes = require("./routes/locationRoutes");
 app.use("/api/locations", locationRoutes);
 
+const uploadRoutes = require("./routes/uploadRoutes");
+app.use("/api/upload", uploadRoutes);
+
 // 5. API kiểm tra server
 app.get("/api/health", (req, res) => {
   res.status(200).json({
