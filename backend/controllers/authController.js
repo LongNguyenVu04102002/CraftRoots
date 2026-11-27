@@ -180,6 +180,7 @@ const login = async (req, res) => {
           fullName: user.fullName,
           email: user.email,
           phone: user.phone,
+          avatarUrl: user.avatarUrl || "",
           role: user.role,
           accountStatus: user.accountStatus,
           lastLoginAt: user.lastLoginAt,
