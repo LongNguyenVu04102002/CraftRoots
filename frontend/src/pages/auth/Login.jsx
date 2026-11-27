@@ -17,8 +17,11 @@ const Login = () => {
       // Lưu token để sử dụng cho các API cần xác thực
       localStorage.setItem("token", data.token);
       message.success("Đăng nhập thành công!"); //component cua ant design
-      //Sau khi thành công chuyển về "/profile"
-      navigate("/profile");
+      // Điều hướng theo vai trò sau khi đăng nhập.
+      const role = data.user?.role;
+      const destination =
+        role === "ADMIN" ? "/admin" : role === "ARTISAN" ? "/artisan" : "/user";
+      navigate(destination, { replace: true });
     } catch (error) {
       message.error(error.message || "Đăng nhập thất bại!");
     } finally {
