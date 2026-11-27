@@ -1,2 +1,3 @@
-// MODEL ĐỀ XUẤT VÀ KIỂM DUYỆT
-// Chức năng này do thành viên khác phụ trách. Chưa có code.
+// MODEL CONTRIBUTION
+// Lưu đề xuất CREATE/UPDATE/DELETE_REQUEST của nghệ nhân đối với
+// làng nghề, nghề thủ công hoặc hiện vật; kèm trạng thái và thông tin kiểm duyệt.

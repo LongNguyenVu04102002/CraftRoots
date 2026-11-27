@@ -1,2 +1,2 @@
 // ROUTES CONTRIBUTION
-// Chức năng này do thành viên khác phụ trách. Chưa có code.
+// Khai báo URL API gửi, xem và kiểm duyệt đề xuất.

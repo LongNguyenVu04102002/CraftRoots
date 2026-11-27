@@ -1,4 +1,3 @@
-
 const Village = require("../models/Village");
 const Region = require("../models/Region");
 const { stripProvincePrefix } = require("../data/vietnamLocations");

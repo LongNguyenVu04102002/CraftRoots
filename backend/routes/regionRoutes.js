@@ -1,9 +1,8 @@
-
 const express = require("express");
 const router = express.Router();
 
 const regionController = require("../controllers/regionController");
-
+const { authenticate, authorize } = require("../middlewares/authMiddleware");
 // ======================================
 // PUBLIC ROUTES
 // ======================================
@@ -12,6 +11,12 @@ const regionController = require("../controllers/regionController");
 router.get("/public/regions", regionController.getPublicRegions);
 router.get("/regions", regionController.getPublicRegions);
 
+// ======================================
+// ADMIN ROUTES
+// ======================================
+
+// Bảo vệ tất cả API /admin/regions
+router.use("/admin/regions", authenticate, authorize("ADMIN"));
 
 // Lấy tất cả Region (có tìm kiếm, lọc)
 router.get("/admin/regions", regionController.getAllRegions);

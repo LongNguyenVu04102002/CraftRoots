@@ -1,3 +1,2 @@
-// LIÊN HỆ
-// Chức năng này do thành viên khác phụ trách. Chưa có code.
-
+// TRANG LIÊN HỆ
+// Người dùng gửi câu hỏi hoặc thông tin liên hệ đến Ban quản trị.

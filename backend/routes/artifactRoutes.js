@@ -1,2 +1,2 @@
 // ROUTES ARTIFACT
-// Chức năng này do thành viên khác phụ trách. Chưa có code.
+// Khai báo URL API hiện vật/sản phẩm thủ công.

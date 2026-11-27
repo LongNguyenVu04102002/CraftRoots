@@ -1,3 +1,10 @@
+// KẾT NỐI DATABASE
+// Nhiệm vụ dự kiến:
+// - Kết nối MongoDB bằng Mongoose.
+// - Đọc chuỗi kết nối từ biến môi trường MONGO_URI.
+// - In thông báo khi kết nối thành công hoặc thất bại.
+const dns = require("dns");
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 const mongoose = require("mongoose");
 

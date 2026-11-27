@@ -1,3 +1,2 @@
-// DANH SÁCH NGHỀ THỦ CÔNG
-// Chức năng này do thành viên khác phụ trách. Chưa có code.
-
+// TRANG DANH SÁCH NGHỀ THỦ CÔNG
+// Hiển thị, tìm kiếm và lọc các nghề thủ công.

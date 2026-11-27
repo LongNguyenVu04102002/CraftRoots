@@ -22,13 +22,21 @@ export default function AdminLayout() {
         </div>
 
         <nav className="admin-menu">
-          <NavLink to="/admin" end><LayoutDashboard size={17} /> Tổng quan</NavLink>
-          <NavLink to="/admin/regions"><Map size={17} /> Vùng miền</NavLink>
-          <NavLink to="/admin/villages"><MapPin size={17} /> Làng nghề</NavLink>
+          <NavLink to="/admin" end>
+            <LayoutDashboard size={17} /> Tổng quan
+          </NavLink>
+          <NavLink to="/admin/regions">
+            <Map size={17} /> Vùng miền
+          </NavLink>
+          <NavLink to="/admin/villages">
+            <MapPin size={17} /> Làng nghề
+          </NavLink>
         </nav>
 
         <div className="admin-sidebar-footer">
-          <Link to="/adminuser" className="admin-back-link"><ArrowLeft size={16} /> Về cổng công khai</Link>
+          <Link to="/adminuser" className="admin-back-link">
+            <ArrowLeft size={16} /> Về cổng công khai
+          </Link>
           <button type="button" className="admin-logout-btn">
             <LogOut size={16} /> Đăng xuất
           </button>
