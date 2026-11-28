@@ -19,6 +19,8 @@ import ManageVillages from "../pages/admin/ManageVillages";
 
 import Dashboard from "../pages/admin/Dashboard";
 import ManageCrafts from "../pages/admin/ManageCrafts";
+import CraftList from "../pages/crafts/CraftList";
+import CraftDetail from "../pages/crafts/CraftDetail";
 import ManageCraftDirectories from "../pages/admin/ManageCraftDirectories";
 // Trang thông báo không đủ quyền
 const Forbidden = () => {
@@ -74,6 +76,78 @@ const AppRoutes = () => {
           path="/adminuser/villages/:slug"
           element={<VillageDetail backPath="/adminuser/villages" />}
         />
+
+          {/* TRA CỨU NGHỀ THỦ CÔNG */}
+
+          {/* Đường dẫn chung từ Navbar */}
+          <Route
+              path="/crafts"
+              element={<CraftList craftPath="/crafts" />}
+          />
+
+          {/* USER */}
+          <Route
+              path="/user/crafts"
+              element={<CraftList craftPath="/user/crafts" />}
+          />
+
+          {/* ARTISAN */}
+          <Route
+              path="/artisan/crafts"
+              element={<CraftList craftPath="/artisan/crafts" />}
+          />
+
+          {/* ADMIN - Giao diện người dùng */}
+          <Route
+              path="/adminuser/crafts"
+              element={<CraftList craftPath="/adminuser/crafts" />}
+          />
+
+          {/* CHI TIẾT NGHỀ THỦ CÔNG */}
+
+          // Đường dẫn công khai
+          <Route
+              path="/crafts/:id"
+              element={
+                  <CraftDetail
+                      craftPath="/crafts"
+                      villagePath="/user/villages"
+                  />
+              }
+          />
+
+          {/* USER */}
+          <Route
+              path="/user/crafts/:id"
+              element={
+                  <CraftDetail
+                      craftPath="/user/crafts"
+                      villagePath="/user/villages"
+                  />
+              }
+          />
+
+          {/* ARTISAN */}
+          <Route
+              path="/artisan/crafts/:id"
+              element={
+                  <CraftDetail
+                      craftPath="/artisan/crafts"
+                      villagePath="/artisan/villages"
+                  />
+              }
+          />
+
+          {/* ADMIN - Giao diện công khai */}
+          <Route
+              path="/adminuser/crafts/:id"
+              element={
+                  <CraftDetail
+                      craftPath="/adminuser/crafts"
+                      villagePath="/adminuser/villages"
+                  />
+              }
+          />
       </Route>
 
       {/* 4. Chuyển hướng nếu nhập URL số ít */}

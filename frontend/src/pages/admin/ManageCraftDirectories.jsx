@@ -21,6 +21,27 @@ const makeSlug = (value) => normalize(value).trim()
 const getError = (err, fallback) => err.response?.data?.message || fallback;
 const row = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" };
 const field = { display: "grid", gap: 6, minWidth: 0 };
+// Đồng bộ chiều cao và kích thước các ô chọn trong hộp thoại.
+const selectStyle = {
+    boxSizing: "border-box",
+    width: "100%",
+    minWidth: 0,
+    maxWidth: "100%",
+    height: 40,
+    padding: "0 32px 0 12px",
+    border: "1px solid var(--border, #e2e8f0)",
+    borderRadius: 10,
+    backgroundColor: "var(--card-bg, #fff)",
+    color: "var(--text, #1f2937)",
+    fontFamily: "inherit",
+    fontSize: 14,
+    cursor: "pointer",
+};
+const toolbarButtonStyle = {
+    boxSizing: "border-box", height: 40, flexShrink: 0,
+    whiteSpace: "nowrap", display: "inline-flex", alignItems: "center",
+    justifyContent: "center", gap: 6,
+};
 const muted = { color: "var(--text-muted, #64748b)", fontSize: 13 };
 const border = "1px solid var(--border, #e2e8f0)";
 const danger = { color: "#b91c1c", borderColor: "#fecaca" };
@@ -247,7 +268,11 @@ export default function ManageCraftDirectories({ onClose, onChanged }) {
                 style={{ width: "min(1100px, calc(100% - 24px))", maxWidth: "none", maxHeight: "90vh", padding: 0, margin: "auto",
                     border: 0, borderRadius: 16, color: "var(--text, #1f2937)", background: "var(--card-bg, #fff)",
                     boxShadow: "0 20px 60px rgba(15,23,42,.28)", overflow: "auto", boxSizing: "border-box" }}>
-            <style>{".craft-directory-dialog::backdrop { background: rgba(15,23,42,.55); backdrop-filter: blur(3px); }"}</style>
+            <style>{`
+                .craft-directory-dialog::backdrop { background: rgba(15,23,42,.55); backdrop-filter: blur(3px); }
+                .craft-directory-dialog select:focus-visible,
+                .craft-directory-dialog input:focus-visible { outline: 2px solid #a64b2a; outline-offset: 2px; }
+            `}</style>
             <header style={{ ...row, justifyContent: "space-between", padding: "18px 22px", borderBottom: border,
                 position: "sticky", top: 0, background: "var(--card-bg, #fff)", zIndex: 2 }}>
                 <div style={{ ...row, flex: "1 1 240px" }}>
@@ -263,13 +288,35 @@ export default function ManageCraftDirectories({ onClose, onChanged }) {
                         <div key={label} style={{ border, borderRadius: 10, padding: 14 }}><div style={muted}>{label}</div><strong style={{ fontSize: 25, color }}>{n}</strong></div>
                     ))}
                 </div>
-                <div style={{ ...row, marginBottom: 16 }}>
-                    <label style={{ ...row, flex: "1 1 220px", flexWrap: "nowrap", border, padding: "4px 9px", borderRadius: 8 }}>
-                        <Search size={17} color="#64748b" /><input aria-label="Tìm nhóm nghề" placeholder="Tìm kiếm nhóm nghề..." value={search} onChange={e => setSearch(e.target.value)} style={{ border: 0, width: "100%", minWidth: 0 }} />
+                {/* Thanh tìm kiếm và bộ lọc đồng bộ, tự xuống dòng khi hẹp. */}
+                <div style={{ ...row, marginBottom: 16, alignItems: "center" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8,
+                        flex: "1 1 240px", minWidth: 0, maxWidth: "100%", height: 40,
+                        border, borderRadius: 10, padding: "0 12px", boxSizing: "border-box",
+                        background: "var(--card-bg, #fff)" }}>
+                        <Search size={17} color="#64748b" style={{ flexShrink: 0 }} />
+                        <input aria-label="Tìm nhóm nghề" placeholder="Tìm kiếm nhóm nghề..."
+                               value={search} onChange={e => setSearch(e.target.value)}
+                               style={{ border: 0, width: "100%", minWidth: 0, height: "100%",
+                                   boxSizing: "border-box", padding: 0, background: "transparent",
+                                   fontFamily: "inherit", fontSize: 14 }} />
                     </label>
-                    <select aria-label="Lọc trạng thái" value={status} onChange={e => setStatus(e.target.value)}><option value="all">Tất cả trạng thái</option><option value="active">Đang hiển thị</option><option value="inactive">Đã ẩn</option></select>
-                    <button type="button" className="btn-outline" disabled={busy || loading} onClick={() => { clearMessages(); loadDirectories(); }}><RotateCcw size={15} /> Tải lại</button>
-                    <button type="button" className="btn-primary" disabled={busy || loading || !!pending} onClick={() => openCreate()}><Plus size={17} /> Thêm nhóm nghề</button>
+                    <div style={{ flex: "0 1 180px", minWidth: 0, maxWidth: "100%" }}>
+                        <select aria-label="Lọc trạng thái" value={status}
+                                onChange={e => setStatus(e.target.value)} style={selectStyle}>
+                            <option value="all">Tất cả trạng thái</option>
+                            <option value="active">Đang hiển thị</option>
+                            <option value="inactive">Đã ẩn</option>
+                        </select>
+                    </div>
+                    <button type="button" className="btn-outline" style={toolbarButtonStyle}
+                            disabled={busy || loading} onClick={() => { clearMessages(); loadDirectories(); }}>
+                        <RotateCcw size={15} /> Tải lại
+                    </button>
+                    <button type="button" className="btn-primary" style={toolbarButtonStyle}
+                            disabled={busy || loading || !!pending} onClick={() => openCreate()}>
+                        <Plus size={17} /> Thêm nhóm nghề
+                    </button>
                 </div>
                 {error && <div className="alert-error" role="alert" style={{ marginBottom: 14 }}>{error}</div>}
                 {success && <div role="status" style={{ marginBottom: 14, padding: 12, background: "#dcfce7", color: "#166534", borderRadius: 8 }}>{success}</div>}
@@ -314,7 +361,7 @@ export default function ManageCraftDirectories({ onClose, onChanged }) {
                             {!hasChildren && !parentOptions.length && <p style={{ ...muted, margin: "8px 0 0" }}>Chưa có nhóm chính phù hợp. Hãy tạo hoặc khôi phục một nhóm chính trước.</p>}
                             {form.position === "sub" && <div style={{ marginTop: 12 }}>
                                 <label style={field}>Thuộc nhóm nghề *
-                                    <select required value={form.parentId} onChange={e => change("parentId", e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border }}>
+                                    <select required value={form.parentId} onChange={e => change("parentId", e.target.value)} style={selectStyle}>
                                         <option value="">-- Chọn nhóm nghề --</option>
                                         {form.parentId && !parentOptions.some(item => getId(item._id) === form.parentId) && <option value={form.parentId} disabled>{byId.get(form.parentId)?.name || "Nhóm cũ"} — cần chọn lại</option>}
                                         {parentOptions.map(item => <option key={getId(item._id)} value={getId(item._id)}>{item.name}{item.isActive ? "" : " (đã ẩn, giữ liên kết cũ)"}</option>)}
