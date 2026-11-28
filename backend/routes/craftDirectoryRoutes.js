@@ -1,5 +1,5 @@
+
 const express = require("express");
-const router = express.Router();
 
 const {
   getPublicCraftDirectories,
@@ -7,31 +7,68 @@ const {
   createCraftDirectory,
   updateCraftDirectory,
   deleteCraftDirectory,
+  permanentlyDeleteCraftDirectory,
 } = require("../controllers/craftDirectoryController");
 
-const { authenticate, authorize } = require("../middlewares/authMiddleware");
+const {
+  authenticate,
+  authorize,
+} = require("../middlewares/authMiddleware");
 
-console.log("authenticate:", typeof authenticate);
-console.log("authorize:", typeof authorize);
-console.log("getPublicCraftDirectories:", typeof getPublicCraftDirectories);
-console.log("getAdminCraftDirectories:", typeof getAdminCraftDirectories);
-console.log("createCraftDirectory:", typeof createCraftDirectory);
-console.log("updateCraftDirectory:", typeof updateCraftDirectory);
-console.log("deleteCraftDirectory:", typeof deleteCraftDirectory);
+const router = express.Router();
 
-router.get("/", getPublicCraftDirectories);
+// ==================================================
+// 1. API CÔNG KHAI
+// ==================================================
 
+// Lấy danh sách danh mục đang hoạt động
+router.get(
+  "/",
+  getPublicCraftDirectories
+);
+
+// ==================================================
+// 2. API QUẢN TRỊ - CHỈ ADMIN
+// ==================================================
+
+// Lấy tất cả danh mục
 router.get(
   "/admin",
   authenticate,
   authorize("ADMIN"),
-  getAdminCraftDirectories,
+  getAdminCraftDirectories
 );
 
-router.post("/", authenticate, authorize("ADMIN"), createCraftDirectory);
+// Thêm danh mục
+router.post(
+  "/",
+  authenticate,
+  authorize("ADMIN"),
+  createCraftDirectory
+);
 
-router.put("/:id", authenticate, authorize("ADMIN"), updateCraftDirectory);
+// Cập nhật danh mục
+router.put(
+  "/:id",
+  authenticate,
+  authorize("ADMIN"),
+  updateCraftDirectory
+);
 
-router.delete("/:id", authenticate, authorize("ADMIN"), deleteCraftDirectory);
+// Ẩn danh mục (xóa mềm)
+router.delete(
+  "/:id",
+  authenticate,
+  authorize("ADMIN"),
+  deleteCraftDirectory
+);
+
+// Xóa vĩnh viễn danh mục
+router.delete(
+  "/:id/permanent",
+  authenticate,
+  authorize("ADMIN"),
+  permanentlyDeleteCraftDirectory
+);
 
 module.exports = router;

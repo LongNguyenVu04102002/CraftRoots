@@ -54,7 +54,7 @@ const craftDirectorySchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    collection: "craftDirectories",
+    collection: "craftdirectories",
   },
 );
 

@@ -47,8 +47,18 @@ app.use("/api/users", userRoutes);
 const craftDirectoryRoutes = require("./routes/craftDirectoryRoutes");
 app.use("/api/public/craft-directories", craftDirectoryRoutes);
 
-const craftRoutes = require("./routes/craftRoutes");
-app.use("/api/public/crafts", craftRoutes);
+
+const {
+  publicRouter: publicCraftRoutes,
+  adminRouter: adminCraftRoutes,
+} = require("./routes/craftRoutes");
+
+// API công khai
+app.use("/api/public/crafts", publicCraftRoutes);
+
+// API quản trị
+app.use("/api/admin/crafts", adminCraftRoutes);
+
 
 const villageRoutes = require("./routes/villageRoutes");
 app.use("/api", villageRoutes);

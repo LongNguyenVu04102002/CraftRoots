@@ -18,7 +18,8 @@ import ManageRegions from "../pages/admin/ManageRegions";
 import ManageVillages from "../pages/admin/ManageVillages";
 
 import Dashboard from "../pages/admin/Dashboard";
-
+import ManageCrafts from "../pages/admin/ManageCrafts";
+import ManageCraftDirectories from "../pages/admin/ManageCraftDirectories";
 // Trang thông báo không đủ quyền
 const Forbidden = () => {
   return <h2>403 - Bạn không có quyền truy cập</h2>;
@@ -96,8 +97,15 @@ const AppRoutes = () => {
           <Route path="regions" element={<ManageRegions />} />
 
           <Route path="villages" element={<ManageVillages />} />
+            {/*<Route*/}
+            {/*    path="craft-directories"*/}
+            {/*    element={<ManageCraftDirectories />}*/}
+            {/*/>*/}
+            <Route path="crafts" element={<ManageCrafts />} />
         </Route>
       </Route>
+
+
 
       {/* 6. Xử lý lỗi */}
       <Route path="/403" element={<Forbidden />} />

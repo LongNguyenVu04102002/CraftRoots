@@ -1,14 +1,17 @@
 // BỐ CỤC TRANG QUẢN TRỊ
 // Bao gồm menu Admin, thanh tiêu đề và khu vực nội dung quản trị.
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet } from "react-router-dom";
 import {
   LayoutDashboard,
   MapPin,
   Map,
+  Hammer,
+  FolderTree,
   ArrowLeft,
   LogOut
-} from 'lucide-react';
-import { ASSETS_IMAGES } from '../assets/images';
+} from "lucide-react";
+
+import { ASSETS_IMAGES } from "../assets/images";
 
 export default function AdminLayout() {
   return (
@@ -30,6 +33,13 @@ export default function AdminLayout() {
           </NavLink>
           <NavLink to="/admin/villages">
             <MapPin size={17} /> Làng nghề
+          </NavLink>
+          {/*<NavLink to="/admin/craft-directories">*/}
+          {/*  <FolderTree size={17} />*/}
+          {/*  Danh mục nghề*/}
+          {/*</NavLink>*/}
+          <NavLink to="/admin/crafts">
+            <Hammer size={17} /> Nghề thủ công
           </NavLink>
         </nav>
 
