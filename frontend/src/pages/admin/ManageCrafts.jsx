@@ -1222,6 +1222,10 @@ export default function ManageCrafts() {
                             borderBottom: "1px solid var(--border)"
                         }}
                     >
+                        <th scope="col" style={{ padding: "12px 16px", width: 116 }}>
+                            Hình ảnh
+                        </th>
+
                         <th style={{ padding: "12px 16px" }}>
                             Tên nghề
                         </th>
@@ -1252,6 +1256,19 @@ export default function ManageCrafts() {
                                 borderBottom: "1px solid var(--border)"
                             }}
                         >
+                            <td style={{ padding: "12px 16px", verticalAlign: "middle" }}>
+                                <div style={{ width: 84 }}>
+                                    <div style={{ borderRadius: 9, overflow: "hidden", border: "1px solid var(--border, #e5d5c5)" }}>
+                                        <CraftImagePreview image={Array.isArray(craft.images) ? (craft.images.find(image => typeof image === "string" && image.trim()) || "") : ""} index={0} />
+                                    </div>
+                                    <span style={{ display: "block", marginTop: 5, fontSize: 11, textAlign: "center", color: "var(--text-muted, #786557)" }}>
+                                        {Array.isArray(craft.images) && craft.images.filter(image => typeof image === "string" && image.trim()).length > 0
+                                            ? `${craft.images.filter(image => typeof image === "string" && image.trim()).length} ảnh`
+                                            : "Chưa có ảnh"}
+                                    </span>
+                                </div>
+                            </td>
+
                             <td
                                 style={{
                                     padding: "12px 16px",

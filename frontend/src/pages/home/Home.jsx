@@ -6,6 +6,25 @@ import { Search, ChevronLeft, ChevronRight, MapPin, ArrowRight, Sparkles } from 
 import { craftService } from '../../services/craftService';
 import { villageService } from '../../services/villageService';
 import { artifactService } from '../../services/artifactService';
+import api from '../../services/api';
+
+//bo sung đẻ hiển thị ảnh - longvu
+const getCraftImage = (craft) => {
+  const image = craft.images?.[0];
+
+  if (!image) return '';
+
+  if (/^https?:\/\//i.test(image)) {
+    return image;
+  }
+
+  const origin = new URL(
+      api.defaults.baseURL,
+      window.location.origin
+  ).origin;
+
+  return `${origin}/${image.replace(/^\/+/, '')}`;
+};
 
 export default function Home({ basePath = '/user' }) {
   const [crafts, setCrafts] = useState([]);
@@ -18,7 +37,8 @@ export default function Home({ basePath = '/user' }) {
 
   useEffect(() => {
   Promise.all([
-    craftService.getAll?.().catch(() => []) ?? [],
+      //thay đỏi long-vu
+    craftService.getPublic().catch(() => []),
     villageService.getAll().catch(() => []),
     artifactService.getAll?.().catch(() => []) ?? []
   ]).then(([cData, vData, aData]) => {
@@ -51,7 +71,12 @@ export default function Home({ basePath = '/user' }) {
           <div
             key={slide._id || idx}
             className={`hero-bg-layer ${idx === currentSlide ? 'active' : ''}`}
-            style={{ backgroundImage: `url("${slide.thumbnail}")` }}
+            //thay đổi để hiển thị ảnh-longvu
+            style={{
+              backgroundImage: getCraftImage(slide)
+                  ? `url("${getCraftImage(slide)}")`
+                  : undefined
+            }}
           />
         ))}
         <div className="hero-bg-mask" />
@@ -100,10 +125,16 @@ export default function Home({ basePath = '/user' }) {
                 return (
                   <Link
                     key={slide._id || idx}
-                    to={`/crafts/${slide.slug}`}
+                    // thaydoi
+                    to={`/crafts/${slide._id}`}
                     className={`showcase-slide-card ${positionClass}`}
                   >
-                    <img src={slide.thumbnail} alt={slide.name} className="showcase-slide-img" />
+                    {/*thay đổi long vu*/}
+                    <img
+                        src={getCraftImage(slide)}
+                        alt={slide.name}
+                        className="showcase-slide-img"
+                    />
                     <div className="showcase-slide-gradient" />
                     <span className="showcase-cat-tag">{slide.category}</span>
                     <div className="showcase-slide-info">
@@ -163,7 +194,8 @@ export default function Home({ basePath = '/user' }) {
           {crafts.slice(0, 3).map((item) => (
             <Link key={item._id} to={`/crafts/${item.slug}`} className="heritage-card">
               <div className="card-thumb">
-                <img src={item.thumbnail} alt={item.name} />
+                {/*thay đổi*/}
+                <img src={getCraftImage(item)} alt={item.name} />
                 <span className="card-badge">{item.category}</span>
               </div>
               <div className="card-body">
