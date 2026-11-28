@@ -16,7 +16,13 @@
 
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   background-color: var(--bg-warm);
   color: var(--text-dark);
 }
@@ -52,6 +58,41 @@ body {
   justify-content: space-between;
   height: 70px;
   gap: 16px;
+}
+
+/* Avatar nhỏ trên Navbar */
+.navbar-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* Họ tên người đăng nhập */
+.navbar-user-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.navbar-menu-header {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 5px 3px 10px;
+}
+
+.navbar-menu-header span {
+  font-size: 11px;
+  color: #8b7668;
+  letter-spacing: 0.5px;
+}
+
+.navbar-menu-header strong {
+  color: #a84b2b;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .brand {
@@ -180,7 +221,9 @@ body {
   filter: blur(14px) brightness(0.45);
   opacity: 0;
   transform: scale(1.08);
-  transition: opacity 1s ease-in-out, transform 6s ease;
+  transition:
+    opacity 1s ease-in-out,
+    transform 6s ease;
   z-index: 1;
 }
 
@@ -192,7 +235,12 @@ body {
 .hero-bg-mask {
   position: absolute;
   inset: 0;
-  background: linear-gradient(115deg, rgba(34, 21, 13, 0.92) 0%, rgba(56, 35, 22, 0.84) 55%, rgba(34, 21, 13, 0.72) 100%);
+  background: linear-gradient(
+    115deg,
+    rgba(34, 21, 13, 0.92) 0%,
+    rgba(56, 35, 22, 0.84) 55%,
+    rgba(34, 21, 13, 0.72) 100%
+  );
   z-index: 2;
 }
 
@@ -315,7 +363,9 @@ body {
   color: #ffffff;
   opacity: 0;
   transform: translateX(100%);
-  transition: transform 0.75s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.65s ease;
+  transition:
+    transform 0.75s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.65s ease;
   pointer-events: none;
 }
 
@@ -346,7 +396,12 @@ body {
 .showcase-slide-gradient {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(24, 14, 8, 0.45) 50%, rgba(18, 10, 5, 0.94) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.1) 0%,
+    rgba(24, 14, 8, 0.45) 50%,
+    rgba(18, 10, 5, 0.94) 100%
+  );
 }
 
 .showcase-cat-tag {
@@ -480,7 +535,9 @@ body {
   border: 1px solid var(--border);
   text-decoration: none;
   color: inherit;
-  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
 }
 
 .heritage-card:hover {
@@ -769,7 +826,9 @@ body {
   font-size: 0.92rem;
   color: #dfd1c5;
   text-decoration: none;
-  transition: color 0.2s ease, transform 0.2s ease;
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
   display: inline-block;
 }
 

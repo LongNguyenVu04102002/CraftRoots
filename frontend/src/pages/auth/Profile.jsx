@@ -16,6 +16,7 @@ import {
   KeyRound,
   House,
   LogOut,
+  Camera,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -200,6 +201,10 @@ const Profile = () => {
               ) : (
                 <UserRound size={27} />
               )}
+              {/* Lớp phủ hiển thị khi hover */}
+              <span className="profile-avatar-overlay">
+                <Camera size={26} />
+              </span>
             </button>
           </Upload>
 

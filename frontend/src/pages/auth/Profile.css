@@ -59,8 +59,8 @@
 
 /* Nút Avatar */
 .profile-avatar {
-  width: 60px;
-  height: 60px;
+  width: 88px;
+  height: 88px;
   border: none;
   border-radius: 50%;
   padding: 0;
@@ -76,9 +76,33 @@
   cursor: pointer;
   flex-shrink: 0;
   transition: opacity 0.2s ease;
+
+  position: relative;
 }
 
-.profile-avatar:hover {
+/* .profile-avatar:hover {
+  opacity: 0.85;
+} */
+/* Lớp phủ nằm trên ảnh Avatar */
+.profile-avatar-overlay {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(255, 255, 255, 0.48);
+  color: #8f3e24;
+
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+/* 2. Khi di chuột vào Avatar → hiện Camera */
+.profile-avatar:hover .profile-avatar-overlay,
+.profile-avatar:focus-visible .profile-avatar-overlay {
   opacity: 0.85;
 }
 
