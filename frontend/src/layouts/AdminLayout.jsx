@@ -6,6 +6,7 @@ import {
   MapPin,
   Map,
   Hammer,
+  FolderTree,
   ArrowLeft,
   LogOut
 } from "lucide-react";
@@ -33,6 +34,10 @@ export default function AdminLayout() {
           <NavLink to="/admin/villages">
             <MapPin size={17} /> Làng nghề
           </NavLink>
+          {/*<NavLink to="/admin/craft-directories">*/}
+          {/*  <FolderTree size={17} />*/}
+          {/*  Danh mục nghề*/}
+          {/*</NavLink>*/}
           <NavLink to="/admin/crafts">
             <Hammer size={17} /> Nghề thủ công
           </NavLink>

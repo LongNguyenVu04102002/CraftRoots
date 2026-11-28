@@ -5,11 +5,17 @@ import {
     Trash2,
     Search,
     X,
-    RotateCcw
+    RotateCcw,
+    FolderTree
 } from "lucide-react";
 
 import { craftService } from "../../services/craftService";
 import Loading from "../../components/Loading";
+import CraftDirectoryModal from "./ManageCraftDirectories";
+import { craftDirectoryService } from "../../services/craftDirectoryService";
+
+// API có thể trả về ID hoặc đối tượng đã populate.
+const getDirectoryId = (value) => String(value?._id ?? value ?? "");
 
 // Dữ liệu mặc định của biểu mẫu
 const emptyCraft = {
@@ -46,6 +52,9 @@ export default function ManageCrafts() {
     const [showForm, setShowForm] = useState(false);
     const [error, setError] = useState("");
     const [craftToDelete, setCraftToDelete] = useState(null);
+    const [showDirectoryModal, setShowDirectoryModal] = useState(false);
+    const [directoriesLoading, setDirectoriesLoading] = useState(true);
+    const [directoryError, setDirectoryError] = useState("");
 
     // ==============================
     // 2. TẢI DỮ LIỆU
@@ -71,27 +80,42 @@ export default function ManageCrafts() {
         }
     };
 
-    // Tải danh mục và làng nghề
-    const loadRelatedData = async () => {
+    // Tải lại danh mục riêng, không đặt lại biểu mẫu nghề đang nhập.
+    const loadDirectories = async () => {
+        setDirectoriesLoading(true);
+        setDirectoryError("");
         try {
-            const [directoryData, villageData] = await Promise.all([
-                craftService.getDirectories(),
-                craftService.getVillages()
-            ]);
-
-            setDirectories(
-                Array.isArray(directoryData) ? directoryData : []
-            );
-
-            setVillages(
-                Array.isArray(villageData) ? villageData : []
-            );
+            const data = await craftDirectoryService.getAll();
+            if (!Array.isArray(data)) throw new Error("Dữ liệu không hợp lệ");
+            setDirectories(data);
         } catch (err) {
-            setError(
-                err.response?.data?.message ||
-                "Không tải được danh mục hoặc làng nghề."
-            );
+            setDirectoryError(err.response?.data?.message ||
+                "Không tải được nhóm nghề. Vui lòng thử tải lại.");
+        } finally {
+            setDirectoriesLoading(false);
         }
+    };
+
+    // Tải danh mục và làng nghề độc lập để tránh mất dữ liệu nếu một API lỗi.
+    const loadRelatedData = async () => {
+        await Promise.all([
+            loadDirectories(),
+            (async () => {
+                try {
+                    const data = await craftService.getVillages();
+                    setVillages(Array.isArray(data) ? data : []);
+                } catch (err) {
+                    setError(err.response?.data?.message ||
+                        "Không tải được danh sách làng nghề.");
+                }
+            })()
+        ]);
+    };
+
+    // Đóng Modal và đồng bộ danh mục. Không gọi closeForm hoặc loadCrafts.
+    const closeDirectoryModal = () => {
+        setShowDirectoryModal(false);
+        void loadDirectories();
     };
 
     // Chạy khi trang được mở
@@ -174,6 +198,29 @@ export default function ManageCrafts() {
     // 5. THÊM VÀ CẬP NHẬT NGHỀ
     // ==============================
 
+    // Nhóm nghề chính / nhóm nhỏ. Chỉ cho chọn nhóm đang hoạt động.
+    const directoryById = new Map(directories.map(item => [getDirectoryId(item._id), item]));
+    const getDirectoryLabel = (item) => {
+        const parent = directoryById.get(getDirectoryId(item.parentId));
+        return parent ? `${parent.name} › ${item.name}` : item.name;
+    };
+    const directoryOptions = directories.filter(item => {
+        const parentId = getDirectoryId(item.parentId);
+        const parent = directoryById.get(parentId);
+        return item.isActive && (!parentId || (parent?.isActive && !parent.parentId));
+    }).sort((a, b) => {
+        const aRoot = directoryById.get(getDirectoryId(a.parentId)) || a;
+        const bRoot = directoryById.get(getDirectoryId(b.parentId)) || b;
+        return (aRoot.sortOrder ?? 0) - (bRoot.sortOrder ?? 0) ||
+            aRoot.name.localeCompare(bRoot.name, "vi") ||
+            Number(Boolean(a.parentId)) - Number(Boolean(b.parentId)) ||
+            (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name, "vi");
+    });
+    const selectedDirectoryId = getDirectoryId(form.directoryId);
+    const selectedDirectory = directoryById.get(selectedDirectoryId);
+    const unavailableDirectory = Boolean(selectedDirectoryId) &&
+        !directoryOptions.some(item => getDirectoryId(item._id) === selectedDirectoryId);
+
     const handleSave = async (event) => {
         event.preventDefault();
         setError("");
@@ -185,6 +232,16 @@ export default function ManageCrafts() {
 
         if (!form.directoryId) {
             setError("Vui lòng chọn danh mục nghề.");
+            return;
+        }
+
+        if (directoriesLoading || directoryError) {
+            setError("Vui lòng tải lại danh sách nhóm nghề trước khi lưu.");
+            return;
+        }
+
+        if (unavailableDirectory) {
+            setError("Nhóm nghề đã chọn không còn khả dụng. Vui lòng chọn nhóm nghề khác.");
             return;
         }
 
@@ -323,6 +380,7 @@ export default function ManageCrafts() {
                     justifyContent: "space-between",
                     alignItems: "center",
                     gap: 16,
+                    flexWrap: "wrap",
                     marginBottom: 22
                 }}
             >
@@ -341,16 +399,26 @@ export default function ManageCrafts() {
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={handleOpenCreate}
-                >
-                    <Plus size={17} />
-                    {showForm && !editingId
-                        ? "Đóng biểu mẫu"
-                        : "Thêm nghề"}
-                </button>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button
+                        type="button"
+                        className="btn-outline"
+                        onClick={() => setShowDirectoryModal(true)}
+                    >
+                        <FolderTree size={17} />
+                        Quản lý danh mục
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={handleOpenCreate}
+                    >
+                        <Plus size={17} />
+                        {showForm && !editingId
+                            ? "Đóng biểu mẫu"
+                            : "Thêm nghề"}
+                    </button>
+                </div>
             </div>
 
             {/* TÌM KIẾM NGHỀ */}
@@ -386,6 +454,16 @@ export default function ManageCrafts() {
                     />
                 </label>
             </div>
+
+            {directoryError && (
+                <div role="alert" className="alert-error" style={{ marginBottom: 16 }}>
+                    {directoryError}{" "}
+                    <button type="button" className="btn-outline" onClick={loadDirectories}
+                            disabled={directoriesLoading}>
+                        <RotateCcw size={15} /> Tải lại nhóm nghề
+                    </button>
+                </div>
+            )}
 
             {/* THÔNG BÁO LỖI */}
             {error && (
@@ -468,32 +546,44 @@ export default function ManageCrafts() {
                             }
                         />
 
-                        {/* DANH MỤC NGHỀ */}
-                        <select
-                            required
-                            value={form.directoryId}
-                            onChange={(event) =>
-                                setForm({
-                                    ...form,
-                                    directoryId: event.target.value
-                                })
-                            }
-                        >
-                            <option value="">
-                                Chọn danh mục nghề *
-                            </option>
-
-                            {directories
-                                .filter((directory) => directory.isActive)
-                                .map((directory) => (
-                                    <option
-                                        key={directory._id}
-                                        value={directory._id}
-                                    >
-                                        {directory.name}
+                        {/* NHÓM NGHỀ - có thể mở quản lý ngay từ biểu mẫu */}
+                        <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+                            <label htmlFor="craft-directory-select" style={{ fontWeight: 600 }}>
+                                Nhóm nghề *
+                            </label>
+                            <select
+                                id="craft-directory-select"
+                                required
+                                disabled={directoriesLoading || Boolean(directoryError)}
+                                value={selectedDirectoryId}
+                                onChange={(event) => {
+                                    setForm(prev => ({ ...prev, directoryId: event.target.value }));
+                                    setError("");
+                                }}
+                            >
+                                <option value="">{directoriesLoading ? "Đang tải nhóm nghề..." : "Chọn nhóm nghề"}</option>
+                                {unavailableDirectory && (
+                                    <option value={selectedDirectoryId} disabled>
+                                        {selectedDirectory ? getDirectoryLabel(selectedDirectory) : "Nhóm đã chọn"} (không còn khả dụng)
+                                    </option>
+                                )}
+                                {directoryOptions.map(item => (
+                                    <option key={item._id} value={item._id}>
+                                        {getDirectoryLabel(item)}
                                     </option>
                                 ))}
-                        </select>
+                            </select>
+                            {unavailableDirectory && !directoriesLoading && !directoryError && (
+                                <small role="status" style={{ color: "#b45309" }}>
+                                    Nhóm đã chọn không còn khả dụng. Hãy chọn nhóm khác hoặc khôi phục nhóm cũ trước khi lưu.
+                                </small>
+                            )}
+                            <button type="button" className="btn-outline"
+                                    onClick={() => setShowDirectoryModal(true)}
+                                    style={{ justifySelf: "start", fontSize: 13 }}>
+                                <FolderTree size={15} /> Quản lý nhóm nghề
+                            </button>
+                        </div>
                     </div>
 
                     {/* ==========================
@@ -765,6 +855,7 @@ export default function ManageCrafts() {
                         <button
                             type="submit"
                             className="btn-primary"
+                            disabled={directoriesLoading || Boolean(directoryError) || unavailableDirectory}
                         >
                             {editingId
                                 ? "Lưu cập nhật"
@@ -870,7 +961,10 @@ export default function ManageCrafts() {
                             </td>
 
                             <td style={{ padding: "12px 16px" }}>
-                                {craft.directoryId?.name || "—"}
+                                {(() => {
+                                    const directory = directoryById.get(getDirectoryId(craft.directoryId));
+                                    return directory ? getDirectoryLabel(directory) : craft.directoryId?.name || "—";
+                                })()}
                             </td>
 
                             <td style={{ padding: "12px 16px" }}>
@@ -948,6 +1042,11 @@ export default function ManageCrafts() {
                     </p>
                 )}
             </div>
+
+            {/* Quản lý danh mục trong cùng trang, không làm mất dữ liệu form. */}
+            {showDirectoryModal && (
+                <CraftDirectoryModal onClose={closeDirectoryModal} />
+            )}
 
             {/* ==========================
                 HỘP THOẠI XÁC NHẬN XÓA
