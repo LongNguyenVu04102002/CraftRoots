@@ -1,33 +1,58 @@
+
 const express = require("express");
-const router = express.Router();
 
 const {
-  getPublicCrafts,
-  getCraftDetail,
-  getAdminCrafts,
-  createCraft,
-  updateCraft,
-  deleteCraft,
+    getPublicCrafts,
+    getCraftDetail,
+    getAdminCrafts,
+    createCraft,
+    updateCraft,
+    deleteCraft,
 } = require("../controllers/craftController");
 
-const { authenticate, authorize } = require("../middlewares/authMiddleware");
+const {
+    authenticate,
+    authorize,
+} = require("../middlewares/authMiddleware");
 
-// USER: Lấy danh sách nghề thủ công công khai
-router.get("/", getPublicCrafts);
+// ROUTES CÔNG KHAI
+const publicRouter = express.Router();
 
-// USER: Xem chi tiết nghề thủ công
-router.get("/:id", getCraftDetail);
+publicRouter.get("/", getPublicCrafts);
+publicRouter.get("/:id", getCraftDetail);
 
-// ADMIN: Lấy toàn bộ danh sách nghề
-router.get("/admin", authenticate, authorize("ADMIN"), getAdminCrafts);
+// ROUTES ADMIN
+const adminRouter = express.Router();
 
-// ADMIN: Thêm nghề thủ công
-router.post("/", authenticate, authorize("ADMIN"), createCraft);
+adminRouter.get(
+    "/",
+    authenticate,
+    authorize("ADMIN"),
+    getAdminCrafts
+);
 
-// ADMIN: Cập nhật nghề thủ công
-router.put("/:id", authenticate, authorize("ADMIN"), updateCraft);
+adminRouter.post(
+    "/",
+    authenticate,
+    authorize("ADMIN"),
+    createCraft
+);
 
-// ADMIN: Xóa mềm nghề thủ công
-router.delete("/:id", authenticate, authorize("ADMIN"), deleteCraft);
+adminRouter.put(
+    "/:id",
+    authenticate,
+    authorize("ADMIN"),
+    updateCraft
+);
 
-module.exports = router;
+adminRouter.delete(
+    "/:id",
+    authenticate,
+    authorize("ADMIN"),
+    deleteCraft
+);
+
+module.exports = {
+    publicRouter,
+    adminRouter,
+};
