@@ -25,7 +25,7 @@ export const villageService = {
       return villages;
     });
   },
-  getBySlug: (slug) => api.get(`/public/villages/${slug}`).then((response) => normalize(response.data.data)),
+  getBySlug: (slug) => api.get(`/villages/${encodeURIComponent(slug)}`).then((response) => normalize(response.data.data)),
   create: (data) => api.post('/admin/villages', data).then((response) => normalize(response.data.data)),
   update: (id, data) => api.put(`/admin/villages/${id}`, data).then((response) => normalize(response.data.data)),
   setPublished: (id, isPublished) => api.patch(`/admin/villages/${id}/status`, { isPublished }),
