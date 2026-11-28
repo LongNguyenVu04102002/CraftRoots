@@ -7,13 +7,17 @@ const {
   logout,
 } = require("../controllers/authController");
 const { authenticate, authorize } = require("../middlewares/authMiddleware");
+const {
+  registerLimiter,
+  loginLimiter,
+} = require("../middlewares/rateLimitMiddleware");
 
 const router = express.Router();
 
 //API đăng ký tài khoản
-router.post("/register", register);
+router.post("/register", registerLimiter, register);
 //API đăng nhập tài khoản
-router.post("/login", login);
+router.post("/login", loginLimiter, login);
 //API làm mới(refresh) Access Token
 router.post("/refresh", refreshAccessToken); // ở đây ko sử dụng authenticate vì Access Token có thể đã hết hạn => Xác thực ngay trong controller
 //API đăng xuất tài khoản

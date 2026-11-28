@@ -13,6 +13,19 @@ export default function Navbar() {
 
   // 2. Xác định đường dẫn bằng role thật
   const role = user?.role;
+  const roleName =
+    role === "ADMIN"
+      ? " Quản trị viên"
+      : role === "ARTISAN"
+        ? " Nghệ nhân "
+        : " Người dùng ";
+
+  // 3.Lấy fullName của user
+  const displayName = user?.fullName || "Tài khoản";
+  //tạo URL ảnh đại diện từ Backend
+  const avatarSrc = user?.avatarUrl
+    ? new URL(user.avatarUrl, "http://localhost:5000").href
+    : null;
 
   const basePath =
     role === "ADMIN" ? "/adminuser" : role === "ARTISAN" ? "/artisan" : "/user";
@@ -34,16 +47,33 @@ export default function Navbar() {
   // 4. Menu tài khoản
   const userMenuItems = [
     {
-      key: "profile",
-      label: "Hồ sơ cá nhân",
-      icon: <User size={16} />,
-    },
-    { type: "divider" },
-    {
-      key: "logout",
-      label: "Đăng xuất",
-      icon: <LogOut size={16} />,
-      danger: true,
+      type: "group",
+
+      // Phần thông tin tài khoản ở đầu Dropdown
+      label: (
+        <div className="navbar-menu-header">
+          <span>VAI TRÒ</span>
+          <strong>{roleName}</strong>
+        </div>
+      ),
+
+      // Các mục hành động nằm bên dưới
+      children: [
+        {
+          key: "profile",
+          label: "Hồ sơ cá nhân",
+          icon: <User size={16} />,
+        },
+        {
+          type: "divider",
+        },
+        {
+          key: "logout",
+          label: "Đăng xuất",
+          icon: <LogOut size={16} />,
+          danger: true,
+        },
+      ],
     },
   ];
 
@@ -112,13 +142,13 @@ export default function Navbar() {
                   cursor: "pointer",
                 }}
               >
-                <User size={18} />
+                {avatarSrc ? (
+                  <img src={avatarSrc} alt="Avatar" className="navbar-avatar" />
+                ) : (
+                  <User size={18} />
+                )}
 
-                {role === "ADMIN"
-                  ? "Quản trị viên"
-                  : role === "ARTISAN"
-                    ? "Artisan"
-                    : "User"}
+                <span className="navbar-user-name">{displayName}</span>
 
                 <ChevronDown size={14} />
               </button>
