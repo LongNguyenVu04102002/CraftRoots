@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const regionSchema = new mongoose.Schema(

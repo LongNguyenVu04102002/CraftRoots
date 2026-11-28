@@ -1,9 +1,8 @@
-
 const express = require("express");
 const router = express.Router();
 
 const villageController = require("../controllers/villageController");
-
+const { authenticate, authorize } = require("../middlewares/authMiddleware");
 // ======================================
 // PUBLIC ROUTES
 // ======================================
@@ -13,6 +12,11 @@ router.get("/public/villages", villageController.getPublicVillages);
 router.get("/villages", villageController.getPublicVillages);
 router.get("/villages/:slug", villageController.getPublicVillageBySlug);
 
+// ======================================
+// ADMIN ROUTES
+// ======================================
+
+router.use("/admin/villages", authenticate, authorize("ADMIN"));
 
 // Lấy tất cả Village (tìm kiếm, lọc)
 router.get("/admin/villages", villageController.getAllVillages);
@@ -27,7 +31,10 @@ router.post("/admin/villages", villageController.createVillage);
 router.put("/admin/villages/:id", villageController.updateVillage);
 
 // Ẩn / hiện Village
-router.patch("/admin/villages/:id/status", villageController.changeVillageStatus);
+router.patch(
+  "/admin/villages/:id/status",
+  villageController.changeVillageStatus,
+);
 
 // Xóa mềm Village
 router.delete("/admin/villages/:id", villageController.deleteVillage);

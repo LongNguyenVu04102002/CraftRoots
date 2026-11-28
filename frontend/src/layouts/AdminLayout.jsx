@@ -1,14 +1,8 @@
 // BỐ CỤC TRANG QUẢN TRỊ
 // Bao gồm menu Admin, thanh tiêu đề và khu vực nội dung quản trị.
-import { Link, NavLink, Outlet } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  MapPin,
-  Map,
-  ArrowLeft,
-  LogOut
-} from 'lucide-react';
-import { ASSETS_IMAGES } from '../assets/images';
+import { Link, NavLink, Outlet } from "react-router-dom";
+import { LayoutDashboard, MapPin, Map, ArrowLeft, LogOut } from "lucide-react";
+import { ASSETS_IMAGES } from "../assets/images";
 
 export default function AdminLayout() {
   return (
@@ -22,13 +16,21 @@ export default function AdminLayout() {
         </div>
 
         <nav className="admin-menu">
-          <NavLink to="/admin" end><LayoutDashboard size={17} /> Tổng quan</NavLink>
-          <NavLink to="/admin/regions"><Map size={17} /> Vùng miền</NavLink>
-          <NavLink to="/admin/villages"><MapPin size={17} /> Làng nghề</NavLink>
+          <NavLink to="/admin" end>
+            <LayoutDashboard size={17} /> Tổng quan
+          </NavLink>
+          <NavLink to="/admin/regions">
+            <Map size={17} /> Vùng miền
+          </NavLink>
+          <NavLink to="/admin/villages">
+            <MapPin size={17} /> Làng nghề
+          </NavLink>
         </nav>
 
         <div className="admin-sidebar-footer">
-          <Link to="/adminuser" className="admin-back-link"><ArrowLeft size={16} /> Về cổng công khai</Link>
+          <Link to="/adminuser" className="admin-back-link">
+            <ArrowLeft size={16} /> Về cổng công khai
+          </Link>
           <button type="button" className="admin-logout-btn">
             <LogOut size={16} /> Đăng xuất
           </button>
