@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Plus,
     Pencil,
@@ -8,10 +8,14 @@ import {
     RotateCcw,
     FolderTree,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    ImagePlus,
+    ImageOff,
+    Star
 } from "lucide-react";
 
 import { craftService } from "../../services/craftService";
+import api from "../../services/api";
 import Loading from "../../components/Loading";
 import CraftDirectoryModal from "./ManageCraftDirectories";
 import { craftDirectoryService } from "../../services/craftDirectoryService";
@@ -41,6 +45,61 @@ const craftBasicControlStyle = {
     fontSize: 14,
     fontWeight: 400,
 };
+
+// Giữ URL ảnh đã lưu và File mới trong bản nháp; chỉ upload khi lưu nghề.
+const MAX_CRAFT_IMAGES = 8;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+function craftImageUrl(value) {
+    if (typeof value !== "string") return "";
+    const url = value.trim();
+    if (/^https?:\/\//i.test(url)) return url;
+    if (/^\/?uploads\//i.test(url)) {
+        const origin = new URL(api.defaults.baseURL, window.location.origin).origin;
+        return `${origin}/${url.replace(/^\/+/, "")}`;
+    }
+    return url.startsWith("/") && !url.startsWith("//") ? url : "";
+}
+
+async function uploadCraftImage(file) {
+    const body = new FormData();
+    body.append("file", file);
+    // Dùng API upload ADMIN hiện có; Axios tự tạo multipart boundary.
+    const { data } = await api.post("/upload", body, { requiresAuth: true });
+    if (typeof data?.url !== "string" || !data.url.trim()) {
+        throw new Error("Máy chủ không trả về đường dẫn ảnh.");
+    }
+    const url = new URL(data.url, new URL(api.defaults.baseURL, window.location.origin));
+    if (!url.pathname.startsWith("/uploads/")) {
+        throw new Error("Đường dẫn ảnh trả về không hợp lệ.");
+    }
+    // Lưu đường dẫn tương đối để không gắn cứng localhost vào dữ liệu MongoDB.
+    return url.pathname;
+}
+
+function CraftImagePreview({ image, index }) {
+    const [preview, setPreview] = useState("");
+    const [broken, setBroken] = useState(false);
+    useEffect(() => {
+        setBroken(false);
+        if (typeof image === "string") {
+            setPreview(craftImageUrl(image));
+            return;
+        }
+        const url = URL.createObjectURL(image);
+        setPreview(url);
+        return () => URL.revokeObjectURL(url);
+    }, [image]);
+    return (
+        <div style={{ aspectRatio: "4 / 3", background: "#f0e7db", position: "relative", display: "grid", placeItems: "center", overflow: "hidden" }}>
+            {preview && !broken ? (
+                <img src={preview} alt={`Ảnh nghề ${index + 1}`} onError={() => setBroken(true)}
+                     style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", position: "absolute", inset: 0 }} />
+            ) : <ImageOff size={28} color="#92765e" aria-label="Không có ảnh xem trước" />}
+        </div>
+    );
+}
 
 // Dữ liệu mặc định của biểu mẫu
 const emptyCraft = {
@@ -85,6 +144,11 @@ export default function ManageCrafts() {
     const [showDirectoryModal, setShowDirectoryModal] = useState(false);
     const [directoriesLoading, setDirectoriesLoading] = useState(true);
     const [directoryError, setDirectoryError] = useState("");
+    const [imageError, setImageError] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [saveProgress, setSaveProgress] = useState("");
+    const savingRef = useRef(false);
+    const imageInputRef = useRef(null);
 
     // ==============================
     // 2. TẢI DỮ LIỆU
@@ -159,7 +223,9 @@ export default function ManageCrafts() {
     // ==============================
 
     // Đóng và làm mới biểu mẫu
-    const closeForm = () => {
+    const closeForm = (force = false) => {
+        if (savingRef.current && force !== true) return;
+        setImageError("");
         setShowForm(false);
         setEditingId(null);
         setForm(emptyCraft);
@@ -169,6 +235,8 @@ export default function ManageCrafts() {
 
     // Mở biểu mẫu thêm mới
     const handleOpenCreate = () => {
+        if (savingRef.current) return;
+        setImageError("");
         if (showForm && !editingId) {
             closeForm();
             return;
@@ -251,9 +319,49 @@ export default function ManageCrafts() {
     const unavailableDirectory = Boolean(selectedDirectoryId) &&
         !directoryOptions.some(item => getDirectoryId(item._id) === selectedDirectoryId);
 
+    const handleChooseImages = (event) => {
+        const files = Array.from(event.target.files || []);
+        event.target.value = "";
+        if (savingRef.current || !files.length) return;
+        const messages = [];
+        const valid = [];
+        let remaining = Math.max(0, MAX_CRAFT_IMAGES - form.images.length);
+        for (const file of files) {
+            if (!IMAGE_TYPES.has(file.type)) {
+                messages.push(`${file.name}: chỉ chấp nhận JPG, PNG, WEBP hoặc GIF.`);
+                continue;
+            }
+            if (file.size > MAX_IMAGE_BYTES || file.size === 0) {
+                messages.push(`${file.name}: dung lượng phải lớn hơn 0 và không quá 5 MB.`);
+                continue;
+            }
+            if (remaining === 0) {
+                messages.push(`Chỉ được chọn tối đa ${MAX_CRAFT_IMAGES} ảnh.`);
+                break;
+            }
+            valid.push(file);
+            remaining--;
+        }
+        setImageError(messages.join(" "));
+        if (valid.length) setForm(prev => ({ ...prev, images: [...prev.images, ...valid] }));
+    };
+
+    const removeImage = (index) => {
+        if (savingRef.current) return;
+        setImageError("");
+        setForm(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
+    };
+
+    const makeCover = (index) => {
+        if (savingRef.current || index === 0) return;
+        setForm(prev => ({ ...prev, images: [prev.images[index], ...prev.images.filter((_, i) => i !== index)] }));
+    };
+
     const handleSave = async (event) => {
         event.preventDefault();
+        if (savingRef.current) return;
         setError("");
+        setImageError("");
 
         if (!form.name.trim()) {
             setError("Vui lòng nhập tên nghề thủ công.");
@@ -281,20 +389,43 @@ export default function ManageCrafts() {
             slug: form.slug.trim() || createSlug(form.name)
         };
 
+        savingRef.current = true;
+        setSaving(true);
+        let uploading = false;
         try {
+            const images = [...form.images];
+            const pending = images.filter(image => typeof image !== "string").length;
+            let uploaded = 0;
+            for (let index = 0; index < images.length; index++) {
+                if (typeof images[index] === "string") continue;
+                uploading = true;
+                setSaveProgress(`Đang tải ảnh ${uploaded + 1}/${pending}...`);
+                const url = await uploadCraftImage(images[index]);
+                images[index] = url;
+                uploaded++;
+                // Khi upload một phần thành công, giữ URL để lần thử lại không upload trùng.
+                const snapshot = [...images];
+                setForm(prev => ({ ...prev, images: snapshot }));
+            }
+            uploading = false;
+            setSaveProgress("Đang lưu nghề thủ công...");
+            data.images = images;
             if (editingId) {
                 await craftService.update(editingId, data);
             } else {
                 await craftService.create(data);
             }
 
-            closeForm();
+            closeForm(true);
             await loadCrafts();
         } catch (err) {
-            setError(
-                err.response?.data?.message ||
-                "Không thể lưu nghề thủ công."
-            );
+            const message = err.response?.data?.message || err.message || "Không thể lưu nghề thủ công.";
+            if (uploading) setImageError(`Không thể tải ảnh: ${message}`);
+            setError(message);
+        } finally {
+            savingRef.current = false;
+            setSaving(false);
+            setSaveProgress("");
         }
     };
 
@@ -303,6 +434,8 @@ export default function ManageCrafts() {
     // ==============================
 
     const handleEdit = (craft) => {
+        if (savingRef.current) return;
+        setImageError("");
         setEditingId(craft._id);
 
         setForm({
@@ -322,7 +455,7 @@ export default function ManageCrafts() {
             materials: craft.materials || [],
             tools: craft.tools || [],
             processSteps: craft.processSteps || [],
-            images: craft.images || [],
+            images: Array.isArray(craft.images) ? craft.images.filter(image => typeof image === "string" && image.trim()) : [],
             sourceReferences: craft.sourceReferences || [],
             isPublished: craft.isPublished || false
         });
@@ -338,6 +471,7 @@ export default function ManageCrafts() {
 
     // Mở hộp thoại xác nhận xóa
     const handleDelete = (craft) => {
+        if (savingRef.current) return;
         setCraftToDelete(craft);
     };
 
@@ -367,6 +501,7 @@ export default function ManageCrafts() {
     // ==============================
 
     const handleTogglePublished = async (craft) => {
+        if (savingRef.current) return;
         try {
             await craftService.update(craft._id, {
                 isPublished: !craft.isPublished
@@ -493,7 +628,8 @@ export default function ManageCrafts() {
                     <button
                         type="button"
                         className="btn-outline"
-                        onClick={() => setShowDirectoryModal(true)}
+                        onClick={() => { if (!savingRef.current) setShowDirectoryModal(true); }}
+                        disabled={saving}
                     >
                         <FolderTree size={17} />
                         Quản lý danh mục
@@ -502,6 +638,7 @@ export default function ManageCrafts() {
                         type="button"
                         className="btn-primary"
                         onClick={handleOpenCreate}
+                        disabled={saving}
                     >
                         <Plus size={17} />
                         {showForm && !editingId
@@ -600,393 +737,431 @@ export default function ManageCrafts() {
                     className="form-card"
                     style={{ marginBottom: 24 }}
                 >
-                    {/* TIÊU ĐỀ FORM */}
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center"
-                        }}
-                    >
-                        <h3 style={{ margin: 0 }}>
-                            {editingId
-                                ? "Cập nhật nghề thủ công"
-                                : "Thêm nghề thủ công"}
-                        </h3>
-
-                        <button
-                            type="button"
-                            className="btn-icon"
-                            onClick={closeForm}
-                            aria-label="Đóng biểu mẫu"
+                    <fieldset disabled={saving} style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+                        {/* TIÊU ĐỀ FORM */}
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center"
+                            }}
                         >
-                            <X size={17} />
-                        </button>
-                    </div>
+                            <h3 style={{ margin: 0 }}>
+                                {editingId
+                                    ? "Cập nhật nghề thủ công"
+                                    : "Thêm nghề thủ công"}
+                            </h3>
 
-                    {/* THÔNG TIN CƠ BẢN */}
-                    <div
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns:
-                                "repeat(auto-fit, minmax(min(240px, 100%), 1fr))",
-                            alignItems: "start",
-                            minWidth: 0,
-                            gap: 14,
-                            marginTop: 14
-                        }}
-                    >
-                        {/* TÊN NGHỀ */}
-                        <label style={{ display: "grid", gap: 6, minWidth: 0, fontWeight: 600 }}>
-                            Tên nghề thủ công *
-                            <input
-                                style={craftBasicControlStyle}
-                                required
-                                maxLength={150}
-                                placeholder="Nhập tên nghề thủ công..."
-                                value={form.name}
-                                onChange={(event) =>
-                                    setForm({
-                                        ...form,
-                                        name: event.target.value
-                                    })
-                                }
-                            />
-                        </label>
-
-                        {/* SLUG */}
-                        <label style={{ display: "grid", gap: 6, minWidth: 0, fontWeight: 600 }}>
-                            Đường dẫn (tự động nếu để trống)
-                            <input
-                                style={craftBasicControlStyle}
-                                placeholder="Tự động tạo từ tên nghề"
-                                value={form.slug}
-                                onChange={(event) =>
-                                    setForm({
-                                        ...form,
-                                        slug: event.target.value
-                                    })
-                                }
-                            />
-                        </label>
-
-                        {/* NHÓM NGHỀ - có thể mở quản lý ngay từ biểu mẫu */}
-                        <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
-                            <label htmlFor="craft-directory-select" style={{ fontWeight: 600 }}>
-                                Nhóm nghề *
-                            </label>
-                            <select
-                                id="craft-directory-select"
-                                style={{ ...craftBasicControlStyle, paddingRight: 32, cursor: "pointer" }}
-                                required
-                                disabled={directoriesLoading || Boolean(directoryError)}
-                                value={selectedDirectoryId}
-                                onChange={(event) => {
-                                    setForm(prev => ({ ...prev, directoryId: event.target.value }));
-                                    setError("");
-                                }}
+                            <button
+                                type="button"
+                                className="btn-icon"
+                                onClick={closeForm}
+                                aria-label="Đóng biểu mẫu"
                             >
-                                <option value="">{directoriesLoading ? "Đang tải nhóm nghề..." : "Chọn nhóm nghề"}</option>
-                                {unavailableDirectory && (
-                                    <option value={selectedDirectoryId} disabled>
-                                        {selectedDirectory ? getDirectoryLabel(selectedDirectory) : "Nhóm đã chọn"} (không còn khả dụng)
-                                    </option>
-                                )}
-                                {directoryOptions.map(item => (
-                                    <option key={item._id} value={item._id}>
-                                        {getDirectoryLabel(item)}
-                                    </option>
-                                ))}
-                            </select>
-                            {unavailableDirectory && !directoriesLoading && !directoryError && (
-                                <small role="status" style={{ color: "#b45309" }}>
-                                    Nhóm đã chọn không còn khả dụng. Hãy chọn nhóm khác hoặc khôi phục nhóm cũ trước khi lưu.
-                                </small>
-                            )}
-                            <button type="button" className="btn-outline"
-                                    onClick={() => setShowDirectoryModal(true)}
-                                    style={{ justifySelf: "start", fontSize: 13 }}>
-                                <FolderTree size={15} /> Quản lý nhóm nghề
+                                <X size={17} />
                             </button>
                         </div>
-                    </div>
 
-                    {/* ==========================
+                        {/* THÔNG TIN CƠ BẢN */}
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns:
+                                    "repeat(auto-fit, minmax(min(240px, 100%), 1fr))",
+                                alignItems: "start",
+                                minWidth: 0,
+                                gap: 14,
+                                marginTop: 14
+                            }}
+                        >
+                            {/* TÊN NGHỀ */}
+                            <label style={{ display: "grid", gap: 6, minWidth: 0, fontWeight: 600 }}>
+                                Tên nghề thủ công *
+                                <input
+                                    style={craftBasicControlStyle}
+                                    required
+                                    maxLength={150}
+                                    placeholder="Nhập tên nghề thủ công..."
+                                    value={form.name}
+                                    onChange={(event) =>
+                                        setForm({
+                                            ...form,
+                                            name: event.target.value
+                                        })
+                                    }
+                                />
+                            </label>
+
+                            {/* SLUG */}
+                            <label style={{ display: "grid", gap: 6, minWidth: 0, fontWeight: 600 }}>
+                                Đường dẫn (tự động nếu để trống)
+                                <input
+                                    style={craftBasicControlStyle}
+                                    placeholder="Tự động tạo từ tên nghề"
+                                    value={form.slug}
+                                    onChange={(event) =>
+                                        setForm({
+                                            ...form,
+                                            slug: event.target.value
+                                        })
+                                    }
+                                />
+                            </label>
+
+                            {/* NHÓM NGHỀ - có thể mở quản lý ngay từ biểu mẫu */}
+                            <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+                                <label htmlFor="craft-directory-select" style={{ fontWeight: 600 }}>
+                                    Nhóm nghề *
+                                </label>
+                                <select
+                                    id="craft-directory-select"
+                                    style={{ ...craftBasicControlStyle, paddingRight: 32, cursor: "pointer" }}
+                                    required
+                                    disabled={directoriesLoading || Boolean(directoryError)}
+                                    value={selectedDirectoryId}
+                                    onChange={(event) => {
+                                        setForm(prev => ({ ...prev, directoryId: event.target.value }));
+                                        setError("");
+                                    }}
+                                >
+                                    <option value="">{directoriesLoading ? "Đang tải nhóm nghề..." : "Chọn nhóm nghề"}</option>
+                                    {unavailableDirectory && (
+                                        <option value={selectedDirectoryId} disabled>
+                                            {selectedDirectory ? getDirectoryLabel(selectedDirectory) : "Nhóm đã chọn"} (không còn khả dụng)
+                                        </option>
+                                    )}
+                                    {directoryOptions.map(item => (
+                                        <option key={item._id} value={item._id}>
+                                            {getDirectoryLabel(item)}
+                                        </option>
+                                    ))}
+                                </select>
+                                {unavailableDirectory && !directoriesLoading && !directoryError && (
+                                    <small role="status" style={{ color: "#b45309" }}>
+                                        Nhóm đã chọn không còn khả dụng. Hãy chọn nhóm khác hoặc khôi phục nhóm cũ trước khi lưu.
+                                    </small>
+                                )}
+                                <button type="button" className="btn-outline"
+                                        onClick={() => { if (!savingRef.current) setShowDirectoryModal(true); }}
+                                        disabled={saving}
+                                        style={{ justifySelf: "start", fontSize: 13 }}>
+                                    <FolderTree size={15} /> Quản lý nhóm nghề
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* ==========================
                         CHỌN NHIỀU LÀNG NGHỀ
                     ========================== */}
 
-                    <div
-                        style={{
-                            marginTop: 18,
-                            border: "1px solid var(--border)",
-                            borderRadius: 10,
-                            padding: 14
-                        }}
-                    >
-                        <label
-                            style={{
-                                fontWeight: 600,
-                                display: "block",
-                                marginBottom: 10
-                            }}
-                        >
-                            Làng nghề liên quan
-                        </label>
-
-                        {/* Ô TÌM KIẾM LÀNG NGHỀ */}
                         <div
                             style={{
-                                position: "relative",
-                                marginBottom: 12
-                            }}
-                        >
-                            <Search
-                                size={17}
-                                color="var(--text-muted)"
-                                style={{
-                                    position: "absolute",
-                                    left: 10,
-                                    top: 11
-                                }}
-                            />
-
-                            <input
-                                type="text"
-                                placeholder="Tìm kiếm làng nghề..."
-                                value={villageSearch}
-                                onChange={(event) =>
-                                    setVillageSearch(event.target.value)
-                                }
-                                style={{
-                                    width: "100%",
-                                    padding: "10px 10px 10px 36px",
-                                    boxSizing: "border-box"
-                                }}
-                            />
-                        </div>
-
-                        {/* SỐ LƯỢNG ĐÃ CHỌN */}
-                        <p
-                            style={{
-                                fontSize: 13,
-                                color: "var(--text-muted)",
-                                margin: "0 0 8px"
-                            }}
-                        >
-                            Đã chọn {form.villageIds.length} làng nghề
-                        </p>
-
-                        {/* DANH SÁCH LÀNG NGHỀ */}
-                        <div
-                            style={{
-                                maxHeight: 180,
-                                overflowY: "auto",
+                                marginTop: 18,
                                 border: "1px solid var(--border)",
-                                borderRadius: 8,
-                                padding: 8
+                                borderRadius: 10,
+                                padding: 14
                             }}
                         >
-                            {filteredVillages.length > 0 ? (
-                                filteredVillages.map((village) => {
-                                    const checked =
-                                        form.villageIds.includes(village._id);
-
-                                    return (
-                                        <label
-                                            key={village._id}
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: 10,
-                                                padding: "9px 6px",
-                                                cursor: "pointer",
-                                                borderBottom:
-                                                    "1px solid var(--border)"
-                                            }}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={checked}
-                                                onChange={() =>
-                                                    toggleVillage(village._id)
-                                                }
-                                            />
-
-                                            <span>{village.name}</span>
-                                        </label>
-                                    );
-                                })
-                            ) : (
-                                <p
-                                    style={{
-                                        textAlign: "center",
-                                        color: "var(--text-muted)",
-                                        fontSize: 13,
-                                        padding: 10
-                                    }}
-                                >
-                                    Không tìm thấy làng nghề.
-                                </p>
-                            )}
-                        </div>
-
-                        {/* CÁC LÀNG NGHỀ ĐÃ CHỌN */}
-                        <div style={{ marginTop: 14 }}>
-                            <p
+                            <label
                                 style={{
                                     fontWeight: 600,
-                                    fontSize: 13,
-                                    marginBottom: 8
+                                    display: "block",
+                                    marginBottom: 10
                                 }}
                             >
-                                Làng nghề đã chọn:
-                            </p>
+                                Làng nghề liên quan
+                            </label>
 
+                            {/* Ô TÌM KIẾM LÀNG NGHỀ */}
                             <div
                                 style={{
-                                    display: "flex",
-                                    flexWrap: "wrap",
-                                    gap: 8
+                                    position: "relative",
+                                    marginBottom: 12
                                 }}
                             >
-                                {selectedVillages.length > 0 ? (
-                                    selectedVillages.map((village) => (
-                                        <span
-                                            key={village._id}
-                                            style={{
-                                                display: "inline-flex",
-                                                alignItems: "center",
-                                                gap: 6,
-                                                padding: "6px 10px",
-                                                borderRadius: 20,
-                                                background:
-                                                    "var(--bg-secondary, #f1f1f1)",
-                                                fontSize: 13
-                                            }}
-                                        >
-                                            {village.name}
+                                <Search
+                                    size={17}
+                                    color="var(--text-muted)"
+                                    style={{
+                                        position: "absolute",
+                                        left: 10,
+                                        top: 11
+                                    }}
+                                />
 
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    toggleVillage(village._id)
-                                                }
-                                                title="Bỏ chọn làng nghề"
+                                <input
+                                    type="text"
+                                    placeholder="Tìm kiếm làng nghề..."
+                                    value={villageSearch}
+                                    onChange={(event) =>
+                                        setVillageSearch(event.target.value)
+                                    }
+                                    style={{
+                                        width: "100%",
+                                        padding: "10px 10px 10px 36px",
+                                        boxSizing: "border-box"
+                                    }}
+                                />
+                            </div>
+
+                            {/* SỐ LƯỢNG ĐÃ CHỌN */}
+                            <p
+                                style={{
+                                    fontSize: 13,
+                                    color: "var(--text-muted)",
+                                    margin: "0 0 8px"
+                                }}
+                            >
+                                Đã chọn {form.villageIds.length} làng nghề
+                            </p>
+
+                            {/* DANH SÁCH LÀNG NGHỀ */}
+                            <div
+                                style={{
+                                    maxHeight: 180,
+                                    overflowY: "auto",
+                                    border: "1px solid var(--border)",
+                                    borderRadius: 8,
+                                    padding: 8
+                                }}
+                            >
+                                {filteredVillages.length > 0 ? (
+                                    filteredVillages.map((village) => {
+                                        const checked =
+                                            form.villageIds.includes(village._id);
+
+                                        return (
+                                            <label
+                                                key={village._id}
                                                 style={{
-                                                    border: 0,
-                                                    background: "transparent",
-                                                    cursor: "pointer",
-                                                    padding: 0,
                                                     display: "flex",
-                                                    alignItems: "center"
+                                                    alignItems: "center",
+                                                    gap: 10,
+                                                    padding: "9px 6px",
+                                                    cursor: "pointer",
+                                                    borderBottom:
+                                                        "1px solid var(--border)"
                                                 }}
                                             >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={() =>
+                                                        toggleVillage(village._id)
+                                                    }
+                                                />
+
+                                                <span>{village.name}</span>
+                                            </label>
+                                        );
+                                    })
+                                ) : (
+                                    <p
+                                        style={{
+                                            textAlign: "center",
+                                            color: "var(--text-muted)",
+                                            fontSize: 13,
+                                            padding: 10
+                                        }}
+                                    >
+                                        Không tìm thấy làng nghề.
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* CÁC LÀNG NGHỀ ĐÃ CHỌN */}
+                            <div style={{ marginTop: 14 }}>
+                                <p
+                                    style={{
+                                        fontWeight: 600,
+                                        fontSize: 13,
+                                        marginBottom: 8
+                                    }}
+                                >
+                                    Làng nghề đã chọn:
+                                </p>
+
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        flexWrap: "wrap",
+                                        gap: 8
+                                    }}
+                                >
+                                    {selectedVillages.length > 0 ? (
+                                        selectedVillages.map((village) => (
+                                            <span
+                                                key={village._id}
+                                                style={{
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: 6,
+                                                    padding: "6px 10px",
+                                                    borderRadius: 20,
+                                                    background:
+                                                        "var(--bg-secondary, #f1f1f1)",
+                                                    fontSize: 13
+                                                }}
+                                            >
+                                            {village.name}
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        toggleVillage(village._id)
+                                                    }
+                                                    title="Bỏ chọn làng nghề"
+                                                    style={{
+                                                        border: 0,
+                                                        background: "transparent",
+                                                        cursor: "pointer",
+                                                        padding: 0,
+                                                        display: "flex",
+                                                        alignItems: "center"
+                                                    }}
+                                                >
                                                 <X size={14} />
                                             </button>
                                         </span>
-                                    ))
-                                ) : (
-                                    <span
-                                        style={{
-                                            color: "var(--text-muted)",
-                                            fontSize: 13
-                                        }}
-                                    >
+                                        ))
+                                    ) : (
+                                        <span
+                                            style={{
+                                                color: "var(--text-muted)",
+                                                fontSize: 13
+                                            }}
+                                        >
                                         Chưa chọn làng nghề nào.
                                     </span>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    {/* MÔ TẢ NGHỀ */}
-                    <textarea
-                        rows="3"
-                        placeholder="Mô tả nghề thủ công"
-                        value={form.description}
-                        onChange={(event) =>
-                            setForm({
-                                ...form,
-                                description: event.target.value
-                            })
-                        }
-                        style={{
-                            width: "100%",
-                            marginTop: 16,
-                            boxSizing: "border-box"
-                        }}
-                    />
-
-                    {/* LỊCH SỬ NGHỀ */}
-                    <textarea
-                        rows="3"
-                        placeholder="Lịch sử hình thành và phát triển"
-                        value={form.history}
-                        onChange={(event) =>
-                            setForm({
-                                ...form,
-                                history: event.target.value
-                            })
-                        }
-                        style={{
-                            width: "100%",
-                            marginTop: 12,
-                            boxSizing: "border-box"
-                        }}
-                    />
-
-                    {/* TRẠNG THÁI CÔNG KHAI */}
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            marginTop: 12
-                        }}
-                    >
-                        <input
-                            type="checkbox"
-                            checked={form.isPublished}
+                        {/* MÔ TẢ NGHỀ */}
+                        <textarea
+                            rows="3"
+                            placeholder="Mô tả nghề thủ công"
+                            value={form.description}
                             onChange={(event) =>
                                 setForm({
                                     ...form,
-                                    isPublished: event.target.checked
+                                    description: event.target.value
                                 })
                             }
+                            style={{
+                                width: "100%",
+                                marginTop: 16,
+                                boxSizing: "border-box"
+                            }}
                         />
 
-                        <label>
-                            Cho phép công khai nghề thủ công
-                        </label>
-                    </div>
+                        {/* LỊCH SỬ NGHỀ */}
+                        <textarea
+                            rows="3"
+                            placeholder="Lịch sử hình thành và phát triển"
+                            value={form.history}
+                            onChange={(event) =>
+                                setForm({
+                                    ...form,
+                                    history: event.target.value
+                                })
+                            }
+                            style={{
+                                width: "100%",
+                                marginTop: 12,
+                                boxSizing: "border-box"
+                            }}
+                        />
 
-                    {/* NÚT LƯU / HỦY */}
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent: "flex-end",
-                            gap: 8,
-                            marginTop: 16
-                        }}
-                    >
-                        <button
-                            type="button"
-                            className="btn-outline"
-                            onClick={closeForm}
-                        >
-                            Hủy
-                        </button>
+                        {/* HÌNH ẢNH NGHỀ THỦ CÔNG */}
+                        <section aria-labelledby="craft-image-heading" style={{ marginTop: 16, border: "1px solid var(--border, #e5d5c5)", borderRadius: 12, padding: 16, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                                <h4 id="craft-image-heading" style={{ margin: 0 }}>Hình ảnh nghề thủ công</h4>
+                                <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{form.images.length}/{MAX_CRAFT_IMAGES} ảnh</span>
+                            </div>
+                            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "6px 0 14px" }}>Ảnh đại diện sẽ hiển thị trên danh sách nghề. Chọn nhiều ảnh JPG, PNG, WEBP hoặc GIF, tối đa 5 MB/ảnh.</p>
+                            <input ref={imageInputRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif"
+                                   aria-label="Chọn hình ảnh nghề thủ công" onChange={handleChooseImages} hidden />
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 168px), 1fr))", gap: 12, alignItems: "stretch" }}>
+                                {form.images.map((image, index) => (
+                                    <div key={index} style={{ minWidth: 0, border: "1px solid var(--border, #e5d5c5)", borderRadius: 10, overflow: "hidden", background: "var(--card-bg, #fff)" }}>
+                                        <CraftImagePreview image={image} index={index} />
+                                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, padding: 8, justifyContent: "space-between" }}>
+                                            {index === 0 ? (
+                                                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#98612b", fontSize: 12, fontWeight: 600 }}><Star size={14} fill="currentColor" /> Ảnh đại diện</span>
+                                            ) : (
+                                                <button type="button" className="btn-outline" onClick={() => makeCover(index)} style={{ fontSize: 12, padding: "5px 8px" }}><Star size={13} /> Đặt đại diện</button>
+                                            )}
+                                            <button type="button" className="btn-icon" aria-label={`Bỏ ảnh ${index + 1}`} title="Bỏ ảnh" onClick={() => removeImage(index)} style={{ color: "#b42318" }}><Trash2 size={15} /></button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {form.images.length < MAX_CRAFT_IMAGES && (
+                                    <button type="button" onClick={() => imageInputRef.current?.click()}
+                                            style={{ minHeight: 150, minWidth: 0, padding: 12, display: "grid", placeContent: "center", justifyItems: "center", gap: 8, cursor: "pointer", background: "#faf6f0", border: "1px dashed #cbb29b", borderRadius: 10, color: "#8e472b", font: "inherit" }}>
+                                        <ImagePlus size={28} /><strong style={{ fontSize: 14 }}>Thêm hình ảnh</strong><span style={{ fontSize: 12, color: "var(--text-muted)" }}>Chọn ảnh từ máy</span>
+                                    </button>
+                                )}
+                            </div>
+                            {imageError && <p role="alert" style={{ color: "#b42318", fontSize: 13, marginBottom: 0 }}>{imageError}</p>}
+                            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "12px 0 0" }}>Ảnh mới được tải lên máy chủ khi bạn lưu biểu mẫu. Bỏ ảnh sẽ cập nhật danh sách ảnh khi lưu.</p>
+                        </section>
 
-                        <button
-                            type="submit"
-                            className="btn-primary"
-                            disabled={directoriesLoading || Boolean(directoryError) || unavailableDirectory}
+                        {/* TRẠNG THÁI CÔNG KHAI */}
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                                marginTop: 12
+                            }}
                         >
-                            {editingId
-                                ? "Lưu cập nhật"
-                                : "Tạo nghề"}
-                        </button>
-                    </div>
+                            <input
+                                type="checkbox"
+                                checked={form.isPublished}
+                                onChange={(event) =>
+                                    setForm({
+                                        ...form,
+                                        isPublished: event.target.checked
+                                    })
+                                }
+                            />
+
+                            <label>
+                                Cho phép công khai nghề thủ công
+                            </label>
+                        </div>
+
+                        {/* NÚT LƯU / HỦY */}
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                gap: 8,
+                                marginTop: 16
+                            }}
+                        >
+                            <button
+                                type="button"
+                                className="btn-outline"
+                                onClick={closeForm}
+                            >
+                                Hủy
+                            </button>
+
+                            <button
+                                type="submit"
+                                className="btn-primary"
+                                disabled={saving || directoriesLoading || Boolean(directoryError) || unavailableDirectory}
+                            >
+                                {saving ? "Đang lưu..." : editingId
+                                    ? "Lưu cập nhật"
+                                    : "Tạo nghề"}
+                            </button>
+                        </div>
+                    </fieldset>
+                    {saving && <p role="status" style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "right", marginBottom: 0 }}>{saveProgress}</p>}
                 </form>
             )}
 
@@ -1115,6 +1290,7 @@ export default function ManageCrafts() {
                                         type="button"
                                         className="btn-outline"
                                         onClick={() => handleEdit(craft)}
+                                        disabled={saving}
                                     >
                                         <Pencil size={14} />
                                         Sửa
@@ -1124,6 +1300,7 @@ export default function ManageCrafts() {
                                     <button
                                         type="button"
                                         className="btn-outline"
+                                        disabled={saving}
                                         onClick={() =>
                                             handleTogglePublished(craft)
                                         }
@@ -1141,6 +1318,7 @@ export default function ManageCrafts() {
                                             color: "#c62828",
                                             borderColor: "#f5c2c7"
                                         }}
+                                        disabled={saving}
                                         onClick={() =>
                                             handleDelete(craft)
                                         }
