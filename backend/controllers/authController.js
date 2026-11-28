@@ -138,7 +138,7 @@ const login = async (req, res) => {
     const accessToken = jwt.sign(
       { userId: user._id.toString() }, //dữ liệu muốn chứa trong token, cần chuyển toString vì _id là kiểu ObjectId
       process.env.JWT_SECRET, //khóa bí mật dùng để ký token,
-      { expiresIn: process.env.JWT_EXPIRES_IN || "15m" }, //option tùy chọn chọn số ngày sống của token 1d = 1 day, 15m = 15minutes, 1h = 1 hour
+      { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m" }, //option tùy chọn chọn số ngày sống của token 1d = 1 day, 15m = 15minutes, 1h = 1 hour
       //Chưa đưa ROLE vào để middleware có thể lấy quyền mới nhất từ MongoDB, tránh phụ thuộc vào role cũ trong JWT
     );
     //8. Cập nhật thời gian đăng nhập gần nhất (user.lastLoginAt đã set trong model)
@@ -180,6 +180,7 @@ const login = async (req, res) => {
           fullName: user.fullName,
           email: user.email,
           phone: user.phone,
+          avatarUrl: user.avatarUrl || "",
           role: user.role,
           accountStatus: user.accountStatus,
           lastLoginAt: user.lastLoginAt,

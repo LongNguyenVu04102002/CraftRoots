@@ -32,12 +32,13 @@ const AppRoutes = () => {
 
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      {/* 2. Trang yêu cầu đăng nhập */}
-      <Route element={<ProtectedRoute />}>
-        <Route path="/profile" element={<Profile />} />
-      </Route>
+
       {/* 3. Giao diện tra cứu làng nghề */}
       <Route element={<MainLayout />}>
+        {/* 2. Trang yêu cầu đăng nhập */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/profile" element={<Profile />} />
+        </Route>
         {/* Trang chủ */}
         <Route path="/user" element={<Home basePath="/user" />} />
         <Route path="/artisan" element={<Home basePath="/artisan" />} />
@@ -101,7 +102,7 @@ const AppRoutes = () => {
       {/* 6. Xử lý lỗi */}
       <Route path="/403" element={<Forbidden />} />
 
-      { /*<Route path="*" element={<Navigate to="/login" replace />} /> */}
+      {/*<Route path="*" element={<Navigate to="/login" replace />} /> */}
     </Routes>
   );
 };
