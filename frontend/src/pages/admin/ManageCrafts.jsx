@@ -6,7 +6,9 @@ import {
     Search,
     X,
     RotateCcw,
-    FolderTree
+    FolderTree,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 
 import { craftService } from "../../services/craftService";
@@ -16,6 +18,29 @@ import { craftDirectoryService } from "../../services/craftDirectoryService";
 
 // API có thể trả về ID hoặc đối tượng đã populate.
 const getDirectoryId = (value) => String(value?._id ?? value ?? "");
+
+// Tìm kiếm tên tiếng Việt có hoặc không có dấu.
+const normalizeSearch = (value) => String(value ?? "")
+    .toLowerCase().normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d").trim();
+
+// Đồng bộ ô nhập và ô chọn, tính cả padding/border trong chiều rộng cột.
+const craftBasicControlStyle = {
+    width: "100%",
+    minWidth: 0,
+    maxWidth: "100%",
+    height: 44,
+    boxSizing: "border-box",
+    padding: "0 14px",
+    border: "1px solid var(--border, #e2e8f0)",
+    borderRadius: 10,
+    backgroundColor: "var(--card-bg, #fff)",
+    color: "var(--text, #1f2937)",
+    fontFamily: "inherit",
+    fontSize: 14,
+    fontWeight: 400,
+};
 
 // Dữ liệu mặc định của biểu mẫu
 const emptyCraft = {
@@ -46,6 +71,11 @@ export default function ManageCrafts() {
     const [editingId, setEditingId] = useState(null);
 
     const [search, setSearch] = useState("");
+    const [directoryFilter, setDirectoryFilter] = useState("");
+    const [villageFilter, setVillageFilter] = useState("");
+    const [statusFilter, setStatusFilter] = useState("");
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
     const [villageSearch, setVillageSearch] = useState("");
 
     const [loading, setLoading] = useState(true);
@@ -352,14 +382,74 @@ export default function ManageCrafts() {
     };
 
     // ==============================
-    // 9. TÌM KIẾM NGHỀ THỦ CÔNG
+    // 9. THỐNG KÊ, BỘ LỌC VÀ PHÂN TRANG
     // ==============================
 
-    const filteredCrafts = crafts.filter((craft) =>
-        craft.name
-            ?.toLowerCase()
-            .includes(search.trim().toLowerCase())
-    );
+    const totalCrafts = crafts.length;
+    const publishedCount = crafts.filter(craft => Boolean(craft.isPublished)).length;
+    const hiddenCount = totalCrafts - publishedCount;
+
+    // Bộ lọc quản trị gồm cả nhóm đã ẩn; khác với danh sách nhóm dùng khi thêm nghề.
+    const filterDirectories = [...directories].sort((a, b) =>
+        getDirectoryLabel(a).localeCompare(getDirectoryLabel(b), "vi"));
+    const filterVillages = [...villages].sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", "vi"));
+
+    // Nếu chọn nhóm chính, lấy cả nghề thuộc các nhóm nhỏ trực thuộc.
+    const matchingDirectoryIds = new Set(directoryFilter ? [directoryFilter] : []);
+    if (directoryFilter) {
+        directories.forEach(item => {
+            if (getDirectoryId(item.parentId) === directoryFilter) {
+                matchingDirectoryIds.add(getDirectoryId(item._id));
+            }
+        });
+    }
+
+    const keyword = normalizeSearch(search);
+    const filteredCrafts = crafts.filter(craft => {
+        const matchesSearch = normalizeSearch(craft.name).includes(keyword);
+        const matchesDirectory = !directoryFilter || matchingDirectoryIds.has(getDirectoryId(craft.directoryId));
+        const matchesVillage = !villageFilter || (craft.villageIds || []).some(village =>
+            getDirectoryId(village) === villageFilter);
+        const matchesStatus = !statusFilter || (statusFilter === "published"
+            ? Boolean(craft.isPublished) : !craft.isPublished);
+        return matchesSearch && matchesDirectory && matchesVillage && matchesStatus;
+    });
+
+    const totalPages = Math.max(1, Math.ceil(filteredCrafts.length / pageSize));
+    const currentPage = Math.min(Math.max(1, page), totalPages);
+    const startIndex = (currentPage - 1) * pageSize;
+    const paginatedCrafts = filteredCrafts.slice(startIndex, startIndex + pageSize);
+    const hasFilters = Boolean(search.trim() || directoryFilter || villageFilter || statusFilter);
+    const visiblePageNumbers = Array.from({ length: Math.min(5, totalPages) }, (_, index) =>
+        Math.max(1, Math.min(currentPage - 2, totalPages - 4)) + index);
+
+    // Khi xóa nghề cuối trang, tự trở về trang hợp lệ.
+    useEffect(() => {
+        if (!loading && page > totalPages) setPage(totalPages);
+    }, [page, totalPages, loading]);
+
+    // Nhóm đang lọc đã bị xóa khỏi danh sách sau khi đóng Modal.
+    useEffect(() => {
+        if (!directoriesLoading && !directoryError && directoryFilter &&
+            !directories.some(item => getDirectoryId(item._id) === directoryFilter)) {
+            setDirectoryFilter("");
+            setPage(1);
+        }
+    }, [directories, directoriesLoading, directoryError, directoryFilter]);
+
+    const changeFilter = (setter) => (event) => {
+        setter(event.target.value);
+        setPage(1);
+    };
+
+    const resetFilters = () => {
+        setSearch("");
+        setDirectoryFilter("");
+        setVillageFilter("");
+        setStatusFilter("");
+        setPage(1);
+    };
 
     // Hiển thị loading
     if (loading && crafts.length === 0) {
@@ -421,38 +511,62 @@ export default function ManageCrafts() {
                 </div>
             </div>
 
-            {/* TÌM KIẾM NGHỀ */}
-            <div
-                className="filter-bar"
-                style={{ marginBottom: 18 }}
-            >
-                <label
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        flex: 1
-                    }}
-                >
-                    <Search
-                        size={17}
-                        color="var(--text-muted)"
-                    />
+            {/* THỐNG KÊ TOÀN BỘ NGHỀ THỦ CÔNG */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))", gap: 12, marginBottom: 18 }}>
+                {[
+                    { label: "Tổng số nghề", value: totalCrafts, color: "var(--text, #292018)" },
+                    { label: "Đang công khai", value: publishedCount, color: "#166534" },
+                    { label: "Chưa công khai", value: hiddenCount, color: "#64748b" },
+                ].map(stat => (
+                    <div key={stat.label} className="form-card" style={{ margin: 0, padding: "14px 18px", minWidth: 0, boxSizing: "border-box" }}>
+                        <div style={{ color: "var(--text-muted)", fontSize: 13 }}>{stat.label}</div>
+                        <div style={{ marginTop: 5, fontSize: 26, fontWeight: 700, color: stat.color }}>
+                            {loading ? "…" : stat.value}
+                        </div>
+                    </div>
+                ))}
+            </div>
 
-                    <input
-                        placeholder="Tìm theo tên nghề thủ công..."
-                        value={search}
-                        onChange={(event) =>
-                            setSearch(event.target.value)
-                        }
-                        style={{
-                            width: "100%",
-                            padding: 10,
-                            border: 0,
-                            outline: 0
-                        }}
-                    />
+            {/* TÌM KIẾM VÀ BỘ LỌC */}
+            <div className="form-card" style={{ padding: 14, marginBottom: 18, minWidth: 0 }}>
+                <label htmlFor="craft-search" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, minWidth: 0 }}>
+                    <Search size={18} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                    <input id="craft-search" aria-label="Tìm theo tên nghề thủ công" placeholder="Tìm theo tên nghề thủ công..."
+                           value={search} onChange={changeFilter(setSearch)} style={craftBasicControlStyle} />
                 </label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))", gap: 10, alignItems: "end" }}>
+                    <div style={{ minWidth: 0 }}>
+                        <label htmlFor="craft-filter-directory" style={{ display: "block", fontSize: 13, marginBottom: 5 }}>Nhóm nghề</label>
+                        <select id="craft-filter-directory" value={directoryFilter} onChange={changeFilter(setDirectoryFilter)}
+                                style={craftBasicControlStyle} disabled={directoriesLoading || Boolean(directoryError)}>
+                            <option value="">Tất cả nhóm nghề</option>
+                            {filterDirectories.map(item => (
+                                <option key={item._id} value={getDirectoryId(item._id)}>
+                                    {getDirectoryLabel(item)}{item.isActive ? "" : " (Đã ẩn)"}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                        <label htmlFor="craft-filter-village" style={{ display: "block", fontSize: 13, marginBottom: 5 }}>Làng nghề</label>
+                        <select id="craft-filter-village" value={villageFilter} onChange={changeFilter(setVillageFilter)} style={craftBasicControlStyle}>
+                            <option value="">Tất cả làng nghề</option>
+                            {filterVillages.map(item => <option key={item._id} value={getDirectoryId(item._id)}>{item.name}</option>)}
+                        </select>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                        <label htmlFor="craft-filter-status" style={{ display: "block", fontSize: 13, marginBottom: 5 }}>Trạng thái</label>
+                        <select id="craft-filter-status" value={statusFilter} onChange={changeFilter(setStatusFilter)} style={craftBasicControlStyle}>
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="published">Đang công khai</option>
+                            <option value="hidden">Chưa công khai</option>
+                        </select>
+                    </div>
+                    <button type="button" className="btn-outline" onClick={resetFilters} disabled={!hasFilters}
+                            style={{ height: 44, minWidth: 0, maxWidth: "100%", boxSizing: "border-box", justifyContent: "center" }}>
+                        <RotateCcw size={15} /> Đặt lại bộ lọc
+                    </button>
+                </div>
             </div>
 
             {directoryError && (
@@ -515,36 +629,46 @@ export default function ManageCrafts() {
                         style={{
                             display: "grid",
                             gridTemplateColumns:
-                                "repeat(auto-fit, minmax(220px, 1fr))",
+                                "repeat(auto-fit, minmax(min(240px, 100%), 1fr))",
+                            alignItems: "start",
+                            minWidth: 0,
                             gap: 14,
                             marginTop: 14
                         }}
                     >
                         {/* TÊN NGHỀ */}
-                        <input
-                            required
-                            maxLength={150}
-                            placeholder="Tên nghề thủ công *"
-                            value={form.name}
-                            onChange={(event) =>
-                                setForm({
-                                    ...form,
-                                    name: event.target.value
-                                })
-                            }
-                        />
+                        <label style={{ display: "grid", gap: 6, minWidth: 0, fontWeight: 600 }}>
+                            Tên nghề thủ công *
+                            <input
+                                style={craftBasicControlStyle}
+                                required
+                                maxLength={150}
+                                placeholder="Nhập tên nghề thủ công..."
+                                value={form.name}
+                                onChange={(event) =>
+                                    setForm({
+                                        ...form,
+                                        name: event.target.value
+                                    })
+                                }
+                            />
+                        </label>
 
                         {/* SLUG */}
-                        <input
-                            placeholder="Slug (tự tạo nếu để trống)"
-                            value={form.slug}
-                            onChange={(event) =>
-                                setForm({
-                                    ...form,
-                                    slug: event.target.value
-                                })
-                            }
-                        />
+                        <label style={{ display: "grid", gap: 6, minWidth: 0, fontWeight: 600 }}>
+                            Đường dẫn (tự động nếu để trống)
+                            <input
+                                style={craftBasicControlStyle}
+                                placeholder="Tự động tạo từ tên nghề"
+                                value={form.slug}
+                                onChange={(event) =>
+                                    setForm({
+                                        ...form,
+                                        slug: event.target.value
+                                    })
+                                }
+                            />
+                        </label>
 
                         {/* NHÓM NGHỀ - có thể mở quản lý ngay từ biểu mẫu */}
                         <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
@@ -553,6 +677,7 @@ export default function ManageCrafts() {
                             </label>
                             <select
                                 id="craft-directory-select"
+                                style={{ ...craftBasicControlStyle, paddingRight: 32, cursor: "pointer" }}
                                 required
                                 disabled={directoriesLoading || Boolean(directoryError)}
                                 value={selectedDirectoryId}
@@ -883,16 +1008,17 @@ export default function ManageCrafts() {
                 <span>
                     {loading
                         ? "Đang cập nhật..."
-                        : `Tìm thấy ${filteredCrafts.length} nghề thủ công`}
+                        : `Tìm thấy ${filteredCrafts.length} / ${totalCrafts} nghề thủ công`}
                 </span>
 
                 <button
                     type="button"
                     className="btn-outline"
-                    onClick={() => setSearch("")}
+                    onClick={loadCrafts}
+                    disabled={loading}
                 >
                     <RotateCcw size={14} />
-                    Xóa tìm kiếm
+                    Tải lại danh sách
                 </button>
             </div>
 
@@ -944,7 +1070,7 @@ export default function ManageCrafts() {
                     </thead>
 
                     <tbody>
-                    {filteredCrafts.map((craft) => (
+                    {paginatedCrafts.map((craft) => (
                         <tr
                             key={craft._id}
                             style={{
@@ -1038,8 +1164,47 @@ export default function ManageCrafts() {
                             color: "var(--text-muted)"
                         }}
                     >
-                        Không tìm thấy nghề thủ công.
+                        {hasFilters ? "Không tìm thấy nghề thủ công phù hợp với bộ lọc." : "Chưa có nghề thủ công nào."}
                     </p>
+                )}
+            </div>
+
+            {/* PHÂN TRANG DANH SÁCH NGHỀ */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginTop: 14, marginBottom: 24 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", color: "var(--text-muted)", fontSize: 13 }}>
+                    <span aria-live="polite">{filteredCrafts.length
+                        ? `Hiển thị ${startIndex + 1}–${Math.min(startIndex + pageSize, filteredCrafts.length)} / ${filteredCrafts.length} nghề`
+                        : "Hiển thị 0 nghề"}</span>
+                    <label htmlFor="craft-page-size">Số nghề/trang</label>
+                    <select id="craft-page-size" value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }}
+                            style={{ ...craftBasicControlStyle, width: 76, height: 36, padding: "0 8px" }}>
+                        {[10, 20, 50].map(size => <option key={size} value={size}>{size}</option>)}
+                    </select>
+                </div>
+                {filteredCrafts.length > 0 && (
+                    <nav aria-label="Phân trang nghề thủ công" style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                        <button type="button" className="btn-outline" aria-label="Trang trước" disabled={currentPage === 1}
+                                onClick={() => setPage(currentPage - 1)}><ChevronLeft size={16} /></button>
+                        {visiblePageNumbers[0] > 1 && (
+                            <>
+                                <button type="button" className="btn-outline" onClick={() => setPage(1)}>1</button>
+                                {visiblePageNumbers[0] > 2 && <span>…</span>}
+                            </>
+                        )}
+                        {visiblePageNumbers.map(number => (
+                            <button key={number} type="button" className={number === currentPage ? "btn-primary" : "btn-outline"}
+                                    aria-current={number === currentPage ? "page" : undefined} aria-label={`Trang ${number}`}
+                                    onClick={() => setPage(number)}>{number}</button>
+                        ))}
+                        {visiblePageNumbers[visiblePageNumbers.length - 1] < totalPages && (
+                            <>
+                                {visiblePageNumbers[visiblePageNumbers.length - 1] < totalPages - 1 && <span>…</span>}
+                                <button type="button" className="btn-outline" onClick={() => setPage(totalPages)}>{totalPages}</button>
+                            </>
+                        )}
+                        <button type="button" className="btn-outline" aria-label="Trang tiếp theo" disabled={currentPage === totalPages}
+                                onClick={() => setPage(currentPage + 1)}><ChevronRight size={16} /></button>
+                    </nav>
                 )}
             </div>
 
